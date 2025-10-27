@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 *.so
@@ -33,3 +34,8 @@ wheels/
 # OS
 .DS_Store
 Thumbs.db
+
+# DataBases
+*.db
+*.sqlite
+*.sqlite3
