@@ -2,7 +2,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 from PIL import Image, ImageDraw
 import os
-import sqlite3
+import db_manager  # Importar el módulo de lógica de base de datos
 from index import DashboardSAMER
 
 # Configuración del tema y color
@@ -171,33 +171,29 @@ class LoginWindow:
             self.logo_label.pack(pady=(30, 10))
     
     def login(self):
-        """Función para manejar el inicio de sesión con autenticación de base de datos"""
+        """
+        Función para manejar el inicio de sesión.
+        Ahora utiliza el módulo db_manager para toda la lógica de base de datos.
+        """
+        # 1. Obtener las credenciales de los campos de entrada
         username = self.username_entry.get()
         password = self.password_entry.get()
         
-        # Validar que los campos no estén vacíos
+        # 2. Validar que los campos no estén vacíos
         if not username or not password:
-            messagebox.showwarning("Advertencia", "Por favor ingrese usuario y contraseña")
+            messagebox.showwarning(
+                "Advertencia", 
+                "Por favor ingrese usuario y contraseña"
+            )
             return
         
-        conn = None
         try:
-            # Conectar a la base de datos SQLite
-            conn = sqlite3.connect('MySQLite/gestion_garratorrinco.db')
-            cursor = conn.cursor()
+            # 3. Llamar a la función de autenticación del módulo db_manager
+            user = db_manager.autenticar_usuario(username, password)
             
-            # Ejecutar consulta SQL para buscar el usuario
-            cursor.execute(
-                "SELECT * FROM Usuarios WHERE userName = ? AND password = ?",
-                (username, password)
-            )
-            
-            # Verificar si se encontró un usuario
-            user = cursor.fetchone()
-            
+            # 4. Verificar el resultado de la autenticación
             if user:
-                # Login exitoso
-                # Cerrar la ventana de login
+                # Login exitoso - Cerrar la ventana de login
                 self.window.destroy()
                 
                 # Crear y ejecutar la ventana principal del dashboard
@@ -205,19 +201,24 @@ class LoginWindow:
                 dashboard.run()
             else:
                 # Login fallido
-                messagebox.showerror("Error de Autenticación", "Usuario o contraseña incorrectos")
+                messagebox.showerror(
+                    "Error de Autenticación", 
+                    "Usuario o contraseña incorrectos"
+                )
         
-        except sqlite3.Error as e:
-            messagebox.showerror("Error de Base de Datos", f"Error al conectar con la base de datos: {str(e)}")
-        
-        finally:
-            # Cerrar la conexión a la base de datos
-            if conn:
-                conn.close()
+        except Exception as e:
+            # Manejar cualquier error de base de datos
+            messagebox.showerror(
+                "Error de Base de Datos", 
+                f"Error al conectar con la base de datos: {str(e)}"
+            )
     
     def forgot_password_click(self):
         """Función para manejar clic en olvidó contraseña"""
-        messagebox.showinfo("Recuperar Contraseña", "Función de recuperación de contraseña")
+        messagebox.showinfo(
+            "Recuperar Contraseña", 
+            "Función de recuperación de contraseña"
+        )
     
     def run(self):
         """Iniciar la aplicación"""

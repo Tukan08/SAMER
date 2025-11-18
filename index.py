@@ -1,426 +1,321 @@
+"""
+SAMER - Sistema de Administración de Máquinas Expendedoras Recreativas
+Archivo principal que maneja la ventana, navegación y coordinación general
+"""
+
 import customtkinter as ctk
-from tkinter import messagebox, ttk
-import sqlite3
+from tkinter import messagebox
+from views import ViewManager
 
 # Configuración del tema
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
+
 class DashboardSAMER:
+    """
+    Clase principal que gestiona la aplicación
+    Responsable de: ventana principal, header, navegación y coordinación de vistas
+    """
+    
     def __init__(self):
         # Crear ventana principal
         self.window = ctk.CTk()
-        self.window.title("SAMER - Sistema de Administración de Maquinas Expendedoras Recreativas")
-        self.window.geometry("1200x700")
-        self.window.configure(fg_color="#E5E5E5")
-        
-        # Conexión a la base de datos
-        try:
-            self.conn = sqlite3.connect('MySQLite/gestion_garratorrinco.db')
-            self.cursor = self.conn.cursor()
-        except sqlite3.Error as e:
-            messagebox.showerror("Error de Base de Datos", f"No se pudo conectar a la base de datos: {str(e)}")
-            self.window.destroy()
-            return
+        self.window.title("Sistema Adminitrador de Maquinas Expendedoras Recreativas - SAMER")
+        self.window.geometry("1400x800")
+        self.window.configure(fg_color="#F5F7F9")
         
         # Centrar ventana
         self.center_window()
         
-        # Crear componentes
+        # Crear componentes estructurales
         self.create_header()
-        self.create_body()
+        self.create_main_container()
         
-        # Cargar datos iniciales
-        self.change_section("Maquinas")
+        # Inicializar gestor de vistas
+        self.view_manager = ViewManager(self.main_container)
+        
+        # Mostrar dashboard inicial
+        self.show_dashboard()
         
     def center_window(self):
         """Centrar la ventana en la pantalla"""
         self.window.update_idletasks()
-        width = 1200
-        height = 700
+        width = 1000
+        height = 800
         x = (self.window.winfo_screenwidth() // 2) - (width // 2)
         y = (self.window.winfo_screenheight() // 2) - (height // 2)
         self.window.geometry(f'{width}x{height}+{x}+{y}')
     
     def create_header(self):
-        """Crear la barra superior (Header)"""
+        """Crear la barra superior moderna"""
         self.header = ctk.CTkFrame(
             self.window,
-            height=50,
+            height=70,
             corner_radius=0,
-            fg_color="#333333"
+            fg_color="white",
+            border_width=1,
+            border_color="#E0E0E0"
         )
         self.header.pack(fill="x", side="top")
         self.header.pack_propagate(False)
         
-        # Título del header
-        self.header_title = ctk.CTkLabel(
-            self.header,
-            text="SAMER - Sistema de Administración Expendetres",
-            font=("Arial", 18, "bold"),
-            text_color="white"
-        )
-        self.header_title.pack(side="left", padx=20, pady=10)
+        # Frame izquierdo para logo y título
+        left_frame = ctk.CTkFrame(self.header, fg_color="transparent")
+        left_frame.pack(side="left", padx=30, pady=15)
         
-        # Botón de Cerrar Sesión
-        self.btn_logout = ctk.CTkButton(
-            self.header,
-            text="Cerrar Sesión",
-            width=130,
-            height=35,
-            corner_radius=8,
-            fg_color="#D9534F",
-            hover_color="#C9302C",
-            font=("Arial", 13, "bold"),
-            text_color="white",
+        # Logo emoji
+        logo_label = ctk.CTkLabel(
+            left_frame,
+            text="🎮",
+            font=("Arial", 28)
+        )
+        logo_label.pack(side="left", padx=(0, 15))
+        
+        # Título
+        title_label = ctk.CTkLabel(
+            left_frame,
+            text="Software 'SAMER'",
+            font=("Arial", 20, "bold"),
+            text_color="#1A1A1A"
+        )
+        title_label.pack(side="left")
+        
+        # Frame derecho para botones
+        right_frame = ctk.CTkFrame(self.header, fg_color="transparent")
+        right_frame.pack(side="right", padx=30, pady=15)
+        
+        # Botón Home (inicialmente oculto)
+        self.btn_home = ctk.CTkButton(
+            right_frame,
+            text="🏠 Inicio",
+            width=100,
+            height=40,
+            corner_radius=10,
+            fg_color="#1f538d",
+            hover_color="#164270",
+            font=("Arial", 14, "bold"),
+            command=self.show_dashboard
+        )
+        # No lo empaquetamos aún
+        
+        # Botón de notificaciones
+        btn_notifications = ctk.CTkButton(
+            right_frame,
+            text="🔔",
+            width=45,
+            height=45,
+            corner_radius=22,
+            fg_color="#F0F0F0",
+            hover_color="#E0E0E0",
+            text_color="#1A1A1A",
+            font=("Arial", 18),
+            command=self.show_notifications
+        )
+        btn_notifications.pack(side="left", padx=5)
+        
+        # Botón de configuración
+        btn_settings = ctk.CTkButton(
+            right_frame,
+            text="⚙️",
+            width=45,
+            height=45,
+            corner_radius=22,
+            fg_color="#F0F0F0",
+            hover_color="#E0E0E0",
+            text_color="#1A1A1A",
+            font=("Arial", 18),
+            command=self.show_settings
+        )
+        btn_settings.pack(side="left", padx=5)
+        
+        # Botón de perfil/logout
+        btn_profile = ctk.CTkButton(
+            right_frame,
+            text="👤",
+            width=45,
+            height=45,
+            corner_radius=22,
+            fg_color="#F0F0F0",
+            hover_color="#E0E0E0",
+            text_color="#1A1A1A",
+            font=("Arial", 18),
             command=self.logout
         )
-        self.btn_logout.pack(side="right", padx=20, pady=7)
+        btn_profile.pack(side="left", padx=5)
+    
+    def create_main_container(self):
+        """Crear el contenedor principal donde se mostrarán las vistas"""
+        self.main_container = ctk.CTkFrame(
+            self.window,
+            fg_color="#F5F7F9"
+        )
+        self.main_container.pack(fill="both", expand=True, padx=0, pady=0)
+    
+    # ==================== NAVEGACIÓN ====================
+    
+    def show_dashboard(self):
+        """Mostrar la vista del panel de gestión"""
+        # Ocultar botón home
+        self.btn_home.pack_forget()
+        
+        # Mostrar vista del dashboard usando el ViewManager
+        self.view_manager.show_dashboard(on_card_click=self.show_table_view)
+    
+    def show_table_view(self, table_name):
+        """
+        Mostrar la vista de tabla para una sección específica
+        
+        Args:
+            table_name: Nombre de la tabla a mostrar
+        """
+        print(f"\n=== show_table_view llamado ===")
+        print(f"Tabla solicitada: {table_name}")
+        
+        # Mostrar botón home
+        self.btn_home.pack(side="left", padx=5)
+        print("Botón home mostrado")
+        
+        # Preparar callbacks para la vista de tabla
+        callbacks = {
+            'add_item': self.add_item,
+            'edit_item': self.edit_item,
+            'filter': self.filter_data,
+            'download': self.download_pdf
+        }
+        print(f"Callbacks preparados: {list(callbacks.keys())}")
+        
+        # Mostrar vista de tabla usando el ViewManager
+        print("Llamando a view_manager.show_table()...")
+        try:
+            self.view_manager.show_table(table_name, callbacks)
+            print("view_manager.show_table() completado")
+        except Exception as e:
+            print(f"ERROR en show_table(): {e}")
+            import traceback
+            traceback.print_exc()
+        
+        print("=== show_table_view completado ===\n")
+    
+    # ==================== ACCIONES ====================
+    
+    def edit_item(self):
+        """Función para editar un registro seleccionado"""
+        # Verificar que hay una vista de tabla activa
+        if self.view_manager.get_current_view_type() != "table":
+            messagebox.showwarning(
+                "Advertencia",
+                "Esta función solo está disponible en la vista de tabla"
+            )
+            return
+        
+        # Obtener el registro seleccionado
+        current_view = self.view_manager.current_view
+        record_data, column_names = current_view.get_selected_record()
+        
+        # Validar que hay una selección
+        if record_data is None or column_names is None:
+            messagebox.showwarning(
+                "Advertencia",
+                "Por favor, seleccione un registro de la tabla para editar"
+            )
+            return
+        
+        # Importar la clase de ventana de edición
+        from views import EditRecordWindow
+        
+        # Crear ventana de edición
+        edit_window = EditRecordWindow(
+            parent=self.window,
+            table_name=current_view.table_name,
+            record_data=record_data,
+            column_names=column_names,
+            on_success=lambda: current_view.load_data()  # Recargar datos al guardar
+        )
+    
+    def add_item(self, table_name):
+        """Función para agregar nuevo elemento"""
+        # Verificar que hay una vista de tabla activa
+        if self.view_manager.get_current_view_type() != "table":
+            messagebox.showwarning(
+                "Advertencia",
+                "Esta función solo está disponible en la vista de tabla"
+            )
+            return
+        
+        # Importar la clase de ventana de agregar
+        from views import AddRecordWindow
+        
+        # Obtener la vista actual para recargar después
+        current_view = self.view_manager.current_view
+        
+        # Crear ventana de agregar registro
+        add_window = AddRecordWindow(
+            parent=self.window,
+            table_name=table_name,
+            on_success=lambda: current_view.load_data()  # Recargar datos al guardar
+        )
+    
+    def filter_data(self):
+        """Función para filtrar datos"""
+        messagebox.showinfo(
+            "Filtrar", 
+            "Funcionalidad de filtrado de datos\n\n(En desarrollo)"
+        )
+    
+    def download_pdf(self, table_name):
+        """Función para descargar reporte en PDF"""
+        display_names = {
+            "Maquinas": "Máquinas",
+            "Ubicacion": "Ubicación",
+            "Mantenimiento": "Mantenimiento",
+            "Recaudacion": "Recaudación",
+            "Stock": "Stock"
+        }
+        display_name = display_names.get(table_name, table_name)
+        messagebox.showinfo(
+            "Descargar Reporte", 
+            f"Generando reporte PDF de {display_name}...\n\n(En desarrollo)"
+        )
+    
+    def show_notifications(self):
+        """Mostrar notificaciones"""
+        messagebox.showinfo(
+            "Notificaciones", 
+            "No tienes nuevas notificaciones"
+        )
+    
+    def show_settings(self):
+        """Mostrar configuración"""
+        messagebox.showinfo(
+            "Configuración", 
+            "Panel de configuración\n\n(En desarrollo)"
+        )
     
     def logout(self):
         """Cerrar sesión y volver a la ventana de login"""
-        # Cerrar conexión a la base de datos
-        if hasattr(self, 'conn') and self.conn:
-            self.conn.close()
-        
-        # Destruir ventana actual
-        self.window.destroy()
-        
-        # Importar y abrir ventana de login
-        from login import LoginWindow
-        login = LoginWindow()
-        login.run()
-    
-    def create_body(self):
-        """Crear el cuerpo principal (menú + contenido)"""
-        # Frame contenedor del cuerpo
-        self.body = ctk.CTkFrame(
-            self.window,
-            fg_color="#E5E5E5"
-        )
-        self.body.pack(fill="both", expand=True, padx=0, pady=0)
-        
-        # Crear menú lateral y área de contenido
-        self.create_menu()
-        self.create_content_area()
-    
-    def create_menu(self):
-        """Crear la columna de menú izquierda"""
-        self.menu_frame = ctk.CTkFrame(
-            self.body,
-            width=250,
-            corner_radius=0,
-            fg_color="#F0F0F0"
-        )
-        self.menu_frame.pack(side="left", fill="y", padx=0, pady=0)
-        self.menu_frame.pack_propagate(False)
-        
-        # Título del menú
-        self.menu_title = ctk.CTkLabel(
-            self.menu_frame,
-            text="Secciones Principales\ndel Sistema",
-            font=("Arial", 16, "bold"),
-            text_color="#333333"
-        )
-        self.menu_title.pack(pady=(30, 10))
-        
-        # Subtítulo
-        self.menu_subtitle = ctk.CTkLabel(
-            self.menu_frame,
-            text="Sección: Máquinas",
-            font=("Arial", 13),
-            text_color="#666666"
-        )
-        self.menu_subtitle.pack(pady=(5, 30))
-        
-        # Botones del menú
-        self.btn_maquinas = ctk.CTkButton(
-            self.menu_frame,
-            text="MÁQUINAS",
-            width=200,
-            height=50,
-            corner_radius=10,
-            fg_color="#1f538d",
-            hover_color="#164270",
-            font=("Arial", 14, "bold"),
-            command=lambda: self.change_section("Maquinas")
-        )
-        self.btn_maquinas.pack(pady=10)
-        
-        self.btn_mantenimiento = ctk.CTkButton(
-            self.menu_frame,
-            text="MANTENIMIENTO",
-            width=200,
-            height=50,
-            corner_radius=10,
-            fg_color="#8B8B8B",
-            hover_color="#707070",
-            font=("Arial", 14, "bold"),
-            command=lambda: self.change_section("Mantenimiento")
-        )
-        self.btn_mantenimiento.pack(pady=10)
-        
-        self.btn_recaudacion = ctk.CTkButton(
-            self.menu_frame,
-            text="RECAUDACIÓN",
-            width=200,
-            height=50,
-            corner_radius=10,
-            fg_color="#8B8B8B",
-            hover_color="#707070",
-            font=("Arial", 14, "bold"),
-            command=lambda: self.change_section("Recaudacion")
-        )
-        self.btn_recaudacion.pack(pady=10)
-        
-        self.btn_stock = ctk.CTkButton(
-            self.menu_frame,
-            text="STOCK",
-            width=200,
-            height=50,
-            corner_radius=10,
-            fg_color="#8B8B8B",
-            hover_color="#707070",
-            font=("Arial", 14, "bold"),
-            command=lambda: self.change_section("Stock")
-        )
-        self.btn_stock.pack(pady=10)
-    
-    def create_content_area(self):
-        """Crear el área de contenido derecha"""
-        # Frame contenedor del área de contenido
-        self.content_container = ctk.CTkFrame(
-            self.body,
-            fg_color="#E5E5E5"
-        )
-        self.content_container.pack(side="right", fill="both", expand=True, padx=20, pady=20)
-        
-        # Tarjeta blanca principal
-        self.content_card = ctk.CTkFrame(
-            self.content_container,
-            corner_radius=15,
-            fg_color="white"
-        )
-        self.content_card.pack(fill="both", expand=True)
-        
-        # Header de la tarjeta
-        self.create_card_header()
-        
-        # Área para la tabla
-        self.table_frame = ctk.CTkFrame(
-            self.content_card,
-            fg_color="#F8F8F8",
-            corner_radius=10
-        )
-        self.table_frame.pack(fill="both", expand=True, padx=20, pady=(10, 20))
-        
-        # Configurar la tabla
-        self.setup_table()
-        
-        # Footer de la tarjeta
-        self.create_card_footer()
-    
-    def setup_table(self):
-        """Configurar el Treeview para mostrar datos"""
-        # Crear estilo para el Treeview
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Treeview",
-                       background="white",
-                       foreground="#333333",
-                       rowheight=30,
-                       fieldbackground="white",
-                       font=("Arial", 11))
-        style.configure("Treeview.Heading",
-                       background="#1f538d",
-                       foreground="white",
-                       font=("Arial", 12, "bold"))
-        style.map("Treeview",
-                 background=[("selected", "#14b8a6")])
-        
-        # Frame para contener el Treeview y scrollbars
-        tree_container = ctk.CTkFrame(self.table_frame, fg_color="white")
-        tree_container.pack(fill="both", expand=True, padx=10, pady=10)
-        
-        # Scrollbars
-        vsb = ttk.Scrollbar(tree_container, orient="vertical")
-        hsb = ttk.Scrollbar(tree_container, orient="horizontal")
-        
-        # Crear Treeview
-        self.tree = ttk.Treeview(
-            tree_container,
-            yscrollcommand=vsb.set,
-            xscrollcommand=hsb.set
+        result = messagebox.askyesno(
+            "Cerrar Sesión",
+            "¿Estás seguro que deseas cerrar sesión?"
         )
         
-        vsb.config(command=self.tree.yview)
-        hsb.config(command=self.tree.xview)
-        
-        # Posicionar elementos
-        self.tree.grid(row=0, column=0, sticky="nsew")
-        vsb.grid(row=0, column=1, sticky="ns")
-        hsb.grid(row=1, column=0, sticky="ew")
-        
-        tree_container.grid_rowconfigure(0, weight=1)
-        tree_container.grid_columnconfigure(0, weight=1)
-    
-    def create_card_header(self):
-        """Crear el encabezado de la tarjeta de contenido"""
-        self.card_header = ctk.CTkFrame(
-            self.content_card,
-            fg_color="white",
-            height=60
-        )
-        self.card_header.pack(fill="x", padx=20, pady=(20, 10))
-        self.card_header.pack_propagate(False)
-        
-        # Título de la sección
-        self.section_title = ctk.CTkLabel(
-            self.card_header,
-            text="Sección: Máquinas",
-            font=("Arial", 22, "bold"),
-            text_color="#333333"
-        )
-        self.section_title.pack(side="left", pady=10)
-        
-        # Frame para los botones a la derecha
-        self.buttons_frame = ctk.CTkFrame(
-            self.card_header,
-            fg_color="white"
-        )
-        self.buttons_frame.pack(side="right", pady=10)
-        
-        # Botón Filtrar
-        self.btn_filter = ctk.CTkButton(
-            self.buttons_frame,
-            text="Filtrar",
-            width=120,
-            height=35,
-            corner_radius=8,
-            fg_color="#6B6B6B",
-            hover_color="#555555",
-            font=("Arial", 13)
-        )
-        self.btn_filter.pack(side="right", padx=(10, 0))
-        
-        # Botón Agregar
-        self.btn_add = ctk.CTkButton(
-            self.buttons_frame,
-            text="Agregar Máquina",
-            width=150,
-            height=35,
-            corner_radius=8,
-            fg_color="#1f538d",
-            hover_color="#164270",
-            font=("Arial", 13),
-            command=self.add_item
-        )
-        self.btn_add.pack(side="right")
-    
-    def create_card_footer(self):
-        """Crear el pie de la tarjeta de contenido"""
-        self.card_footer = ctk.CTkFrame(
-            self.content_card,
-            fg_color="white",
-            height=50
-        )
-        self.card_footer.pack(fill="x", padx=20, pady=(0, 20))
-        self.card_footer.pack_propagate(False)
-        
-        # Botón Descargar Reporte
-        self.btn_download = ctk.CTkButton(
-            self.card_footer,
-            text="Descargar Reporte (.pdf)",
-            width=200,
-            height=35,
-            corner_radius=8,
-            fg_color="#1f538d",
-            hover_color="#164270",
-            font=("Arial", 13, "bold"),
-            command=self.download_pdf
-        )
-        self.btn_download.pack(side="left", pady=7)
-    
-    def change_section(self, section_name):
-        """Cambiar de sección y actualizar la interfaz"""
-        # Actualizar títulos
-        display_name = section_name
-        if section_name == "Maquinas":
-            display_name = "Máquinas"
-        elif section_name == "Recaudacion":
-            display_name = "Recaudación"
-        
-        self.section_title.configure(text=f"Sección: {display_name}")
-        self.menu_subtitle.configure(text=f"Sección: {display_name}")
-        
-        # Actualizar texto del botón agregar
-        self.btn_add.configure(text=f"Agregar {display_name[:-1] if display_name.endswith('s') else display_name}")
-        
-        # Actualizar colores de botones del menú
-        buttons = {
-            "Maquinas": self.btn_maquinas,
-            "Mantenimiento": self.btn_mantenimiento,
-            "Recaudacion": self.btn_recaudacion,
-            "Stock": self.btn_stock
-        }
-        
-        for name, button in buttons.items():
-            if name == section_name:
-                button.configure(fg_color="#1f538d", hover_color="#164270")
-            else:
-                button.configure(fg_color="#8B8B8B", hover_color="#707070")
-        
-        # Cargar datos de la tabla
-        self.load_data_to_table(section_name)
-    
-    def load_data_to_table(self, table_name):
-        """Cargar datos de la base de datos en el Treeview"""
-        try:
-            # Limpiar tabla actual
-            self.tree.delete(*self.tree.get_children())
+        if result:
+            # Destruir ventana actual
+            self.window.destroy()
             
-            # Ejecutar consulta
-            self.cursor.execute(f"SELECT * FROM {table_name}")
-            rows = self.cursor.fetchall()
-            
-            # Obtener nombres de columnas
-            column_names = [description[0] for description in self.cursor.description]
-            
-            # Configurar columnas del Treeview
-            self.tree["columns"] = column_names
-            self.tree["show"] = "headings"
-            
-            # Configurar encabezados y anchos de columna
-            for col in column_names:
-                self.tree.heading(col, text=col)
-                self.tree.column(col, width=120, anchor="center")
-            
-            # Insertar datos
-            for row in rows:
-                self.tree.insert("", "end", values=row)
-                
-        except sqlite3.Error as e:
-            messagebox.showerror("Error de Base de Datos", f"Error al cargar datos: {str(e)}")
+            # Importar y abrir ventana de login
+            from login import LoginWindow
+            login = LoginWindow()
+            login.run()
     
-    def add_item(self):
-        """Función para agregar nuevo elemento"""
-        section = self.section_title.cget("text").replace("Sección: ", "")
-        messagebox.showinfo("Agregar", f"Funcionalidad para agregar nuevo elemento en {section}")
-    
-    def download_pdf(self):
-        """Función para descargar reporte en PDF"""
-        section = self.section_title.cget("text").replace("Sección: ", "")
-        messagebox.showinfo("Descargar Reporte", f"Generando reporte PDF de {section}...")
+    # ==================== EJECUCIÓN ====================
     
     def run(self):
         """Iniciar la aplicación"""
         self.window.mainloop()
-        
-        # Cerrar conexión al cerrar la ventana
-        if hasattr(self, 'conn') and self.conn:
-            self.conn.close()
 
-# Ejecutar la aplicación
+
+# Punto de entrada
 if __name__ == "__main__":
     app = DashboardSAMER()
     app.run()
