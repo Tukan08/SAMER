@@ -203,6 +203,62 @@ def obtener_columnas_insert(tabla):
             conn.close()
 
 
+def obtener_columnas_para_insert(tabla):
+    """
+    Obtiene las columnas necesarias para un INSERT.
+    Excluye las llaves primarias que sean AUTOINCREMENT.
+    
+    Args:
+        tabla (str): Nombre de la tabla
+    
+    Returns:
+        list: Lista con los nombres de las columnas para el formulario
+    """
+    conn = None
+    try:
+        conn = conexion_db.crear_conexion()
+        if conn is None:
+            raise Error("No se pudo establecer conexión con la base de datos")
+        
+        cursor = conn.cursor()
+        
+        # Obtener el comando SQL con el que se creó la tabla
+        cursor.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
+            (tabla,)
+        )
+        result = cursor.fetchone()
+        if not result:
+            raise Error(f"Tabla '{tabla}' no encontrada")
+        
+        schema = result[0].upper()
+        
+        # Obtener la info de las columnas
+        cursor.execute(f"PRAGMA table_info({tabla})")
+        columnas_info = cursor.fetchall()
+        
+        columnas_a_pedir = []
+        
+        for col in columnas_info:
+            nombre = col[1]
+            es_pk = col[5] == 1
+            
+            # Si es PK Y tiene AUTOINCREMENT, no la pedimos
+            if es_pk and 'AUTOINCREMENT' in schema:
+                continue
+            
+            columnas_a_pedir.append(nombre)
+        
+        return columnas_a_pedir
+        
+    except Error as e:
+        raise Error(f"Error al obtener columnas de INSERT para '{tabla}': {e}")
+    
+    finally:
+        if conn:
+            conn.close()
+
+
 # ============================================================================
 # FUNCIONES CRUD
 # ============================================================================
@@ -397,6 +453,152 @@ def consultar_registros(tabla):
     """
     return cargar_datos_tabla(tabla)
 
+
+def insertar_registro(tabla, datos_dict):
+    """
+    Inserta un nuevo registro en una tabla de forma dinámica.
+    
+    Args:
+        tabla (str): Nombre de la tabla
+        datos_dict (dict): Diccionario {nombre_columna: valor}
+    
+    Returns:
+        int: ID del registro insertado (lastrowid)
+    
+    Raises:
+        sqlite3.Error: Si hay un error en la inserción
+    """
+    conn = None
+    try:
+        conn = conexion_db.crear_conexion()
+        if conn is None:
+            raise Error("No se pudo establecer conexión con la base de datos")
+        
+        cursor = conn.cursor()
+        
+        # Construcción dinámica de la consulta
+        columnas = list(datos_dict.keys())
+        valores = list(datos_dict.values())
+        
+        columnas_str = ", ".join(columnas)
+        placeholders = ", ".join(["?"] * len(valores))
+        
+        sql = f"INSERT INTO {tabla} ({columnas_str}) VALUES ({placeholders})"
+        
+        cursor.execute(sql, valores)
+        conn.commit()
+        
+        return cursor.lastrowid
+        
+    except Error as e:
+        if conn:
+            conn.rollback()
+        raise Error(f"Error al insertar en '{tabla}': {e}")
+    
+    finally:
+        if conn:
+            conn.close()
+
+
+def filtrar_registros(tabla, criterios_dict):
+    """
+    Filtra registros de una tabla según criterios específicos.
+    
+    Args:
+        tabla (str): Nombre de la tabla
+        criterios_dict (dict): Diccionario {nombre_columna: valor_a_buscar}
+                              Los valores vacíos o None se ignoran
+    
+    Returns:
+        tuple: (filas, nombres_columnas) donde:
+            - filas: lista de tuplas con los datos filtrados
+            - nombres_columnas: lista con los nombres de las columnas
+    
+    Raises:
+        sqlite3.Error: Si hay un error en la consulta
+    """
+    conn = None
+    try:
+        conn = conexion_db.crear_conexion()
+        if conn is None:
+            raise Error("No se pudo establecer conexión con la base de datos")
+        
+        cursor = conn.cursor()
+        
+        # Construir la consulta base
+        sql = f"SELECT * FROM {tabla}"
+        
+        # Filtrar criterios válidos (no vacíos)
+        criterios_validos = {
+            col: val for col, val in criterios_dict.items() 
+            if val and str(val).strip()
+        }
+        
+        # Si hay criterios válidos, construir la cláusula WHERE
+        if criterios_validos:
+            condiciones = []
+            valores = []
+            
+            for columna, valor in criterios_validos.items():
+                valor_str = str(valor).strip()
+                
+                # Detectar si es una fecha (formato YYYY-MM-DD o contiene "fecha" en el nombre)
+                es_fecha = (
+                    'fecha' in columna.lower() or 
+                    len(valor_str) == 10 and valor_str.count('-') == 2
+                )
+                
+                if es_fecha:
+                    # Para fechas: buscar desde esa fecha en adelante
+                    condiciones.append(f"{columna} >= ?")
+                    valores.append(valor_str)
+                else:
+                    # Para texto/otros: búsqueda parcial (LIKE)
+                    condiciones.append(f"{columna} LIKE ?")
+                    valores.append(f"%{valor_str}%")
+            
+            # Unir todas las condiciones con AND
+            sql += " WHERE " + " AND ".join(condiciones)
+            
+            cursor.execute(sql, valores)
+        else:
+            # Si no hay criterios, devolver todos los registros
+            cursor.execute(sql)
+        
+        filas = cursor.fetchall()
+        nombres_columnas = [description[0] for description in cursor.description]
+        
+        return (filas, nombres_columnas)
+        
+    except Error as e:
+        raise Error(f"Error al filtrar datos de la tabla '{tabla}': {e}")
+    
+    finally:
+        if conn:
+            conn.close()
+
+
+# ============================================================================
+# FUNCIONES AUXILIARES
+# ============================================================================
+
+def validar_tabla_existe(tabla):
+    """
+    Verifica si una tabla existe en la base de datos.
+    
+    Args:
+        tabla (str): Nombre de la tabla
+    
+    Returns:
+        bool: True si la tabla existe, False en caso contrario
+    """
+    try:
+        tablas = obtener_tablas()
+        return tabla in tablas
+    except Error:
+        return False
+
+
 def obtener_estructura_tabla(tabla):
     """
     Obtiene la estructura completa de una tabla.
@@ -414,72 +616,37 @@ def obtener_estructura_tabla(tabla):
         if conn is None:
             raise Error("No se pudo establecer conexión con la base de datos")
         
-        cursor = conn.cursor()
-        cursor.execute(f"PRAGMA table_info({tabla})")
         
-        return cursor.fetchall()
+        cursor = conn.cursor()
+        
+        sql = f"DELETE FROM {tabla} WHERE {pk_nombre} = ?"
+        cursor.execute(sql, (pk_valor,))
+        conn.commit()
+        
+        return cursor.rowcount
         
     except Error as e:
-        raise Error(f"Error al obtener estructura de '{tabla}': {e}")
+        if conn:
+            conn.rollback()
+        raise Error(f"Error al eliminar de '{tabla}': {e}")
     
     finally:
         if conn:
             conn.close()
 
-def obtener_columnas_para_insert(tabla):
+
+def consultar_registros(tabla):
     """
-    Obtiene las columnas necesarias para un INSERT.
-    Excluye las llaves primarias que sean AUTOINCREMENT.
+    Consulta todos los registros de una tabla con sus cabeceras.
+    (Alias de cargar_datos_tabla para mantener compatibilidad)
     
     Args:
         tabla (str): Nombre de la tabla
     
     Returns:
-        list: Lista con los nombres de las columnas para el formulario
+        tuple: (filas, cabeceras)
     """
-    conn = None
-    try:
-        conn = conexion_db.crear_conexion()
-        if conn is None:
-            raise Error("No se pudo establecer conexión con la base de datos")
-        
-        cursor = conn.cursor()
-        
-        # Obtener el comando SQL con el que se creó la tabla
-        cursor.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=?",
-            (tabla,)
-        )
-        result = cursor.fetchone()
-        if not result:
-            raise Error(f"Tabla '{tabla}' no encontrada")
-        
-        schema = result[0].upper()
-        
-        # Obtener la info de las columnas
-        cursor.execute(f"PRAGMA table_info({tabla})")
-        columnas_info = cursor.fetchall()
-        
-        columnas_a_pedir = []
-        
-        for col in columnas_info:
-            nombre = col[1]
-            es_pk = col[5] == 1
-            
-            # Si es PK Y tiene AUTOINCREMENT, no la pedimos
-            if es_pk and 'AUTOINCREMENT' in schema:
-                continue
-            
-            columnas_a_pedir.append(nombre)
-        
-        return columnas_a_pedir
-        
-    except Error as e:
-        raise Error(f"Error al obtener columnas de INSERT para '{tabla}': {e}")
-    
-    finally:
-        if conn:
-            conn.close()
+    return cargar_datos_tabla(tabla)
 
 
 def insertar_registro(tabla, datos_dict):
@@ -528,6 +695,84 @@ def insertar_registro(tabla, datos_dict):
             conn.close()
 
 
+def filtrar_registros(tabla, criterios_dict):
+    """
+    Filtra registros de una tabla según criterios específicos.
+    
+    Args:
+        tabla (str): Nombre de la tabla
+        criterios_dict (dict): Diccionario {nombre_columna: valor_a_buscar}
+                              Los valores vacíos o None se ignoran
+    
+    Returns:
+        tuple: (filas, nombres_columnas) donde:
+            - filas: lista de tuplas con los datos filtrados
+            - nombres_columnas: lista con los nombres de las columnas
+    
+    Raises:
+        sqlite3.Error: Si hay un error en la consulta
+    """
+    conn = None
+    try:
+        conn = conexion_db.crear_conexion()
+        if conn is None:
+            raise Error("No se pudo establecer conexión con la base de datos")
+        
+        cursor = conn.cursor()
+        
+        # Construir la consulta base
+        sql = f"SELECT * FROM {tabla}"
+        
+        # Filtrar criterios válidos (no vacíos)
+        criterios_validos = {
+            col: val for col, val in criterios_dict.items() 
+            if val and str(val).strip()
+        }
+        
+        # Si hay criterios válidos, construir la cláusula WHERE
+        if criterios_validos:
+            condiciones = []
+            valores = []
+            
+            for columna, valor in criterios_validos.items():
+                valor_str = str(valor).strip()
+                
+                # Detectar si es una fecha (formato YYYY-MM-DD o contiene "fecha" en el nombre)
+                es_fecha = (
+                    'fecha' in columna.lower() or 
+                    len(valor_str) == 10 and valor_str.count('-') == 2
+                )
+                
+                if es_fecha:
+                    # Para fechas: buscar desde esa fecha en adelante
+                    condiciones.append(f"{columna} >= ?")
+                    valores.append(valor_str)
+                else:
+                    # Para texto/otros: búsqueda parcial (LIKE)
+                    condiciones.append(f"{columna} LIKE ?")
+                    valores.append(f"%{valor_str}%")
+            
+            # Unir todas las condiciones con AND
+            sql += " WHERE " + " AND ".join(condiciones)
+            
+            cursor.execute(sql, valores)
+        else:
+            # Si no hay criterios, devolver todos los registros
+            cursor.execute(sql)
+        
+        filas = cursor.fetchall()
+        nombres_columnas = [description[0] for description in cursor.description]
+        
+        return (filas, nombres_columnas)
+        
+    except Error as e:
+        raise Error(f"Error al filtrar datos de la tabla '{tabla}': {e}")
+    
+    finally:
+        if conn:
+            conn.close()
+
+
 # ============================================================================
 # FUNCIONES AUXILIARES
 # ============================================================================
@@ -547,3 +792,59 @@ def validar_tabla_existe(tabla):
         return tabla in tablas
     except Error:
         return False
+
+
+def obtener_estructura_tabla(tabla):
+    """
+    Obtiene la estructura completa de una tabla.
+    
+    Args:
+        tabla (str): Nombre de la tabla
+    
+    Returns:
+        list: Lista de tuplas con información de cada columna
+              (cid, name, type, notnull, dflt_value, pk)
+    """
+    conn = None
+    try:
+        conn = conexion_db.crear_conexion()
+        if conn is None:
+            raise Error("No se pudo establecer conexión con la base de datos")
+        
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info({tabla})")
+        
+        return cursor.fetchall()
+        
+    except Error as e:
+        raise Error(f"Error al obtener estructura de '{tabla}': {e}")
+    
+    finally:
+        if conn:
+            conn.close()
+
+
+def obtener_maquinas_con_ubicacion():
+    """
+    Obtiene una lista de máquinas con su ID, nombre y ID de ubicación.
+    
+    Returns:
+        list: Lista de tuplas (idMaquina, nombreMaquina, Ubicacion_idUbicacion)
+    """
+    conn = None
+    try:
+        conn = conexion_db.crear_conexion()
+        if conn is None:
+            raise Error("No se pudo establecer conexión con la base de datos")
+        
+        cursor = conn.cursor()
+        cursor.execute("SELECT idMaquina, nombreMaquina, Ubicacion_idUbicacion FROM Maquinas")
+        
+        return cursor.fetchall()
+        
+    except Error as e:
+        raise Error(f"Error al obtener máquinas con ubicación: {e}")
+    
+    finally:
+        if conn:
+            conn.close()

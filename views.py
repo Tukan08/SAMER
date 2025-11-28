@@ -5,23 +5,19 @@ Maneja todas las interfaces visuales del dashboard y las tablas
 
 import customtkinter as ctk
 from tkinter import messagebox, ttk
+from tkcalendar import DateEntry
+import datetime
 import db_manager
 
 
+# ============================================================================
+# VENTANA DE EDICIÓN DE REGISTROS
+# ============================================================================
+
 class EditRecordWindow(ctk.CTkToplevel):
-    """
-    Ventana emergente para editar o eliminar registros
-    """
+    """Ventana emergente para editar o eliminar registros"""
     
     def __init__(self, parent, table_name, record_data, column_names, on_success):
-        """
-        Args:
-            parent: Ventana padre
-            table_name: Nombre de la tabla
-            record_data: Tupla con los datos del registro seleccionado
-            column_names: Lista con los nombres de las columnas
-            on_success: Callback a ejecutar cuando se guarde o elimine exitosamente
-        """
         super().__init__(parent)
         
         self.table_name = table_name
@@ -29,27 +25,20 @@ class EditRecordWindow(ctk.CTkToplevel):
         self.column_names = column_names
         self.on_success = on_success
         
-        # Obtener la PK de la tabla
         try:
             self.pk_name = db_manager.obtener_pk(table_name)
-            self.pk_value = record_data[0]  # Asumimos que la PK es la primera columna
+            self.pk_value = record_data[0]
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo obtener la llave primaria: {e}")
             self.destroy()
             return
         
-        # Diccionario para almacenar los entries
         self.entries = {}
-        
-        # Configurar ventana
         self.setup_window()
-        
-        # Crear interfaz
         self.create_ui()
     
     def setup_window(self):
         """Configurar propiedades de la ventana"""
-        # Mapeo de nombres para display
         display_names = {
             "Maquinas": "Máquinas",
             "Ubicacion": "Ubicación",
@@ -63,26 +52,20 @@ class EditRecordWindow(ctk.CTkToplevel):
         self.geometry("500x600")
         self.resizable(False, False)
         
-        # Centrar ventana
         self.update_idletasks()
         x = (self.winfo_screenwidth() // 2) - (500 // 2)
         y = (self.winfo_screenheight() // 2) - (600 // 2)
         self.geometry(f"500x600+{x}+{y}")
         
-        # Hacer que la ventana sea modal
         self.transient(self.master)
         self.grab_set()
-        
-        # Configurar color de fondo
         self.configure(fg_color="#F5F7F9")
     
     def create_ui(self):
         """Crear la interfaz de usuario"""
-        # Frame principal con scroll
         main_frame = ctk.CTkFrame(self, fg_color="#F5F7F9")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
         
-        # Título
         title_label = ctk.CTkLabel(
             main_frame,
             text=f"Editar Registro",
@@ -91,7 +74,6 @@ class EditRecordWindow(ctk.CTkToplevel):
         )
         title_label.pack(pady=(10, 20))
         
-        # Frame para el formulario con scroll
         form_container = ctk.CTkScrollableFrame(
             main_frame,
             fg_color="white",
@@ -101,13 +83,10 @@ class EditRecordWindow(ctk.CTkToplevel):
         )
         form_container.pack(fill="both", expand=True, pady=(0, 15))
         
-        # Crear campos dinámicamente
         for i, (col_name, value) in enumerate(zip(self.column_names, self.record_data)):
-            # Frame para cada campo
             field_frame = ctk.CTkFrame(form_container, fg_color="transparent")
             field_frame.pack(fill="x", padx=20, pady=10)
             
-            # Label del campo
             label = ctk.CTkLabel(
                 field_frame,
                 text=col_name,
@@ -117,7 +96,6 @@ class EditRecordWindow(ctk.CTkToplevel):
             )
             label.pack(fill="x", pady=(0, 5))
             
-            # Entry del campo
             entry = ctk.CTkEntry(
                 field_frame,
                 height=40,
@@ -129,18 +107,14 @@ class EditRecordWindow(ctk.CTkToplevel):
             entry.pack(fill="x")
             entry.insert(0, str(value) if value is not None else "")
             
-            # Deshabilitar el campo de la PK (no editable)
             if col_name == self.pk_name:
                 entry.configure(state="disabled", fg_color="#F0F0F0")
             
-            # Guardar referencia al entry
             self.entries[col_name] = entry
         
-        # Frame para botones de acción
         buttons_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         buttons_frame.pack(fill="x", pady=(10, 0))
         
-        # Botón Cancelar
         btn_cancel = ctk.CTkButton(
             buttons_frame,
             text="Cancelar",
@@ -154,7 +128,6 @@ class EditRecordWindow(ctk.CTkToplevel):
         )
         btn_cancel.pack(side="left", padx=5)
         
-        # Botón Eliminar
         btn_delete = ctk.CTkButton(
             buttons_frame,
             text="🗑️ Eliminar",
@@ -168,7 +141,6 @@ class EditRecordWindow(ctk.CTkToplevel):
         )
         btn_delete.pack(side="left", padx=5)
         
-        # Botón Guardar
         btn_save = ctk.CTkButton(
             buttons_frame,
             text="💾 Guardar",
@@ -185,24 +157,18 @@ class EditRecordWindow(ctk.CTkToplevel):
     def save_changes(self):
         """Guardar los cambios en la base de datos"""
         try:
-            # Recopilar los datos actualizados (excluyendo la PK)
             datos_actualizados = {}
             
             for col_name, entry in self.entries.items():
-                # Saltar la PK
                 if col_name == self.pk_name:
                     continue
                 
-                # Obtener el valor del entry
                 valor = entry.get().strip()
-                
-                # Convertir vacío a None
                 if valor == "":
                     valor = None
                 
                 datos_actualizados[col_name] = valor
             
-            # Validar que hay algo que actualizar
             if not datos_actualizados:
                 messagebox.showwarning(
                     "Advertencia",
@@ -210,7 +176,6 @@ class EditRecordWindow(ctk.CTkToplevel):
                 )
                 return
             
-            # Actualizar en la base de datos
             filas_afectadas = db_manager.actualizar_registro_completo(
                 self.table_name,
                 self.pk_name,
@@ -223,11 +188,7 @@ class EditRecordWindow(ctk.CTkToplevel):
                     "Éxito",
                     "Registro actualizado correctamente"
                 )
-                
-                # Cerrar ventana
                 self.destroy()
-                
-                # Ejecutar callback de éxito
                 if self.on_success:
                     self.on_success()
             else:
@@ -244,7 +205,6 @@ class EditRecordWindow(ctk.CTkToplevel):
     
     def delete_record(self):
         """Eliminar el registro de la base de datos"""
-        # Confirmación
         result = messagebox.askyesno(
             "Confirmar Eliminación",
             f"¿Está seguro que desea eliminar este registro?\n\n"
@@ -256,7 +216,6 @@ class EditRecordWindow(ctk.CTkToplevel):
             return
         
         try:
-            # Eliminar en la base de datos
             filas_eliminadas = db_manager.eliminar_registro(
                 self.table_name,
                 self.pk_name,
@@ -268,11 +227,7 @@ class EditRecordWindow(ctk.CTkToplevel):
                     "Éxito",
                     "Registro eliminado correctamente"
                 )
-                
-                # Cerrar ventana
                 self.destroy()
-                
-                # Ejecutar callback de éxito
                 if self.on_success:
                     self.on_success()
             else:
@@ -288,31 +243,517 @@ class EditRecordWindow(ctk.CTkToplevel):
             )
 
 
+
+# ============================================================================
+# VENTANA DE AGREGAR REGISTROS
+# ============================================================================
+
+class AddRecordWindow(ctk.CTkToplevel):
+    """Ventana emergente para agregar nuevos registros dinámicamente"""
+    
+    def __init__(self, parent, table_name, on_success):
+        super().__init__(parent)
+        
+        self.table_name = table_name
+        self.on_success = on_success
+        self.entries = {}
+        self.maquinas_map = {} # Mapa para guardar info de máquinas (Recaudacion)
+        
+        try:
+            self.columnas = db_manager.obtener_columnas_para_insert(table_name)
+            if not self.columnas:
+                messagebox.showerror("Error", "No se encontraron columnas para insertar")
+                self.destroy()
+                return
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al obtener estructura de tabla: {e}")
+            self.destroy()
+            return
+        
+        self.setup_window()
+        self.create_ui()
+    
+    def setup_window(self):
+        """Configurar propiedades de la ventana"""
+        display_names = {
+            "Maquinas": "Máquinas",
+            "Ubicacion": "Ubicación",
+            "Mantenimiento": "Mantenimiento",
+            "Recaudacion": "Recaudación",
+            "Stock": "Stock"
+        }
+        display_name = display_names.get(self.table_name, self.table_name)
+        
+        self.title(f"Agregar Nuevo en {display_name}")
+        self.geometry("500x600")
+        self.resizable(False, False)
+        
+        self.update_idletasks()
+        x = (self.winfo_screenwidth() // 2) - (500 // 2)
+        y = (self.winfo_screenheight() // 2) - (600 // 2)
+        self.geometry(f"500x600+{x}+{y}")
+        
+        self.transient(self.master)
+        self.grab_set()
+        self.configure(fg_color="#F5F7F9")
+    
+    def create_ui(self):
+        """Crear la interfaz de usuario"""
+        main_frame = ctk.CTkFrame(self, fg_color="#F5F7F9")
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        title_label = ctk.CTkLabel(
+            main_frame,
+            text=f"Agregar Nuevo Registro",
+            font=("Arial", 24, "bold"),
+            text_color="#1A1A1A"
+        )
+        title_label.pack(pady=(10, 20))
+        
+        form_container = ctk.CTkScrollableFrame(
+            main_frame,
+            fg_color="white",
+            corner_radius=15,
+            border_width=1,
+            border_color="#E0E0E0"
+        )
+        form_container.pack(fill="both", expand=True, pady=(0, 15))
+        
+        for col_name in self.columnas:
+            # 3. En Maquinas, quitar idMaquina (se asume auto_increment)
+            if self.table_name == "Maquinas" and col_name == "idMaquina":
+                continue
+
+            field_frame = ctk.CTkFrame(form_container, fg_color="transparent")
+            field_frame.pack(fill="x", padx=20, pady=10)
+            
+            label = ctk.CTkLabel(
+                field_frame,
+                text=col_name,
+                font=("Arial", 12, "bold"),
+                text_color="#333333",
+                anchor="w"
+            )
+            label.pack(fill="x", pady=(0, 5))
+            
+            # 1. Cambiar textboxs de fechas por calendarios
+            if 'fecha' in col_name.lower():
+                entry = DateEntry(
+                    field_frame,
+                    width=12,
+                    background='#1f538d',
+                    foreground='white',
+                    borderwidth=2,
+                    font=("Arial", 12),
+                    date_pattern='yyyy-mm-dd',
+                    locale='es_ES'
+                )
+                entry.pack(fill="x")
+                self.entries[col_name] = entry
+            
+            # 4. En Recaudacion, Maquina_idMaquina es Combobox y Ubicacion es auto
+            elif self.table_name == "Recaudacion" and col_name == "Maquina_idMaquina":
+                try:
+                    maquinas = db_manager.obtener_maquinas_con_ubicacion()
+                    maquina_options = []
+                    for m in maquinas:
+                        # m = (id, nombre, ubicacion_id)
+                        display_text = f"{m[1]} (ID: {m[0]})"
+                        maquina_options.append(display_text)
+                        self.maquinas_map[display_text] = {"id": m[0], "ubicacion": m[2]}
+                    
+                    entry = ctk.CTkComboBox(
+                        field_frame,
+                        values=maquina_options,
+                        height=40,
+                        font=("Arial", 12),
+                        command=self.update_location
+                    )
+                    entry.pack(fill="x")
+                    self.entries[col_name] = entry
+                except Exception as e:
+                    messagebox.showerror("Error", f"Error al cargar máquinas: {e}")
+                    # Fallback a entry normal si falla
+                    entry = ctk.CTkEntry(field_frame)
+                    entry.pack(fill="x")
+                    self.entries[col_name] = entry
+
+            elif self.table_name == "Recaudacion" and col_name == "Ubicacion_idUbicacion":
+                entry = ctk.CTkEntry(
+                    field_frame,
+                    height=40,
+                    font=("Arial", 12),
+                    corner_radius=8,
+                    border_width=2,
+                    border_color="#E0E0E0",
+                    state="disabled" # Solo lectura
+                )
+                entry.pack(fill="x")
+                self.entries[col_name] = entry
+                
+            else:
+                entry = ctk.CTkEntry(
+                    field_frame,
+                    height=40,
+                    font=("Arial", 12),
+                    corner_radius=8,
+                    border_width=2,
+                    border_color="#E0E0E0",
+                    placeholder_text=f"Ingrese {col_name.lower()}"
+                )
+                entry.pack(fill="x")
+                self.entries[col_name] = entry
+        
+        buttons_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        buttons_frame.pack(fill="x", pady=(10, 0))
+        
+        btn_cancel = ctk.CTkButton(
+            buttons_frame,
+            text="Cancelar",
+            width=220,
+            height=45,
+            corner_radius=10,
+            fg_color="#6B6B6B",
+            hover_color="#555555",
+            font=("Arial", 14, "bold"),
+            command=self.destroy
+        )
+        btn_cancel.pack(side="left", padx=5)
+        
+        btn_save = ctk.CTkButton(
+            buttons_frame,
+            text="💾 Guardar",
+            width=220,
+            height=45,
+            corner_radius=10,
+            fg_color="#1f538d",
+            hover_color="#164270",
+            font=("Arial", 14, "bold"),
+            command=self.save_record
+        )
+        btn_save.pack(side="right", padx=5)
+    
+    def update_location(self, selection):
+        """Actualizar el campo de ubicación basado en la máquina seleccionada"""
+        if selection in self.maquinas_map and "Ubicacion_idUbicacion" in self.entries:
+            ubicacion_id = self.maquinas_map[selection]["ubicacion"]
+            entry = self.entries["Ubicacion_idUbicacion"]
+            
+            entry.configure(state="normal")
+            entry.delete(0, "end")
+            entry.insert(0, str(ubicacion_id))
+            entry.configure(state="disabled")
+
+    def save_record(self):
+        """Guardar el nuevo registro en la base de datos"""
+        try:
+            datos = {}
+            campos_vacios = []
+            
+            for col_name, entry in self.entries.items():
+                # Manejar DateEntry
+                if hasattr(entry, 'get_date'):
+                    valor = entry.get_date().strftime('%Y-%m-%d')
+                # Manejar ComboBox (Recaudacion -> Maquina)
+                elif isinstance(entry, ctk.CTkComboBox):
+                    selection = entry.get()
+                    if selection in self.maquinas_map:
+                        valor = str(self.maquinas_map[selection]["id"])
+                    else:
+                        valor = ""
+                # Manejar Entry normal
+                else:
+                    valor = entry.get().strip()
+                
+                if valor == "":
+                    campos_vacios.append(col_name)
+                else:
+                    datos[col_name] = valor
+            
+            if campos_vacios:
+                messagebox.showwarning(
+                    "Campos Vacíos",
+                    f"Por favor complete los siguientes campos:\n\n" + 
+                    "\n".join(f"• {campo}" for campo in campos_vacios)
+                )
+                return
+            
+            nuevo_id = db_manager.insertar_registro(self.table_name, datos)
+            
+            messagebox.showinfo(
+                "Éxito",
+                f"Registro agregado correctamente\nID: {nuevo_id}"
+            )
+            
+            self.destroy()
+            
+            if self.on_success:
+                self.on_success()
+        
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Error al guardar el registro:\n{str(e)}"
+            )
+
+# ============================================================================
+# VENTANA DE FILTRADO DE REGISTROS
+# ============================================================================
+
+class FilterWindow(ctk.CTkToplevel):
+    """Ventana emergente para filtrar registros de una tabla"""
+    
+    def __init__(self, parent, table_name, column_names, on_filter_apply):
+        super().__init__(parent)
+        
+        self.table_name = table_name
+        self.column_names = column_names
+        self.on_filter_apply = on_filter_apply
+        self.filter_widgets = {}
+        
+        self.setup_window()
+        self.create_ui()
+    
+    def setup_window(self):
+        """Configurar propiedades de la ventana"""
+        display_names = {
+            "Maquinas": "Máquinas",
+            "Ubicacion": "Ubicación",
+            "Mantenimiento": "Mantenimiento",
+            "Recaudacion": "Recaudación",
+            "Stock": "Stock"
+        }
+        display_name = display_names.get(self.table_name, self.table_name)
+        
+        self.title(f"Filtrar {display_name}")
+        self.geometry("500x600")
+        self.resizable(False, False)
+        
+        self.update_idletasks()
+        x = (self.winfo_screenwidth() // 2) - (500 // 2)
+        y = (self.winfo_screenheight() // 2) - (600 // 2)
+        self.geometry(f"500x600+{x}+{y}")
+        
+        self.transient(self.master)
+        self.grab_set()
+        self.configure(fg_color="#F5F7F9")
+    
+    def create_ui(self):
+        """Crear la interfaz de usuario"""
+        main_frame = ctk.CTkFrame(self, fg_color="#F5F7F9")
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        title_label = ctk.CTkLabel(
+            main_frame,
+            text="Filtrar Registros",
+            font=("Arial", 24, "bold"),
+            text_color="#1A1A1A"
+        )
+        title_label.pack(pady=(10, 10))
+        
+        subtitle_label = ctk.CTkLabel(
+            main_frame,
+            text="Complete los campos por los que desea filtrar\n(Deje vacío para ignorar)",
+            font=("Arial", 11),
+            text_color="#666666"
+        )
+        subtitle_label.pack(pady=(0, 15))
+        
+        form_container = ctk.CTkScrollableFrame(
+            main_frame,
+            fg_color="white",
+            corner_radius=15,
+            border_width=1,
+            border_color="#E0E0E0"
+        )
+        form_container.pack(fill="both", expand=True, pady=(0, 15))
+        
+        for col_name in self.column_names:
+            field_frame = ctk.CTkFrame(form_container, fg_color="transparent")
+            field_frame.pack(fill="x", padx=20, pady=10)
+            
+            label = ctk.CTkLabel(
+                field_frame,
+                text=col_name,
+                font=("Arial", 12, "bold"),
+                text_color="#333333",
+                anchor="w"
+            )
+            label.pack(fill="x", pady=(0, 5))
+            
+            es_fecha = 'fecha' in col_name.lower()
+            
+            if es_fecha:
+                # 2. Check para validar si queremos filtrar por fecha o no
+                check_var = ctk.BooleanVar(value=False)
+                check = ctk.CTkCheckBox(
+                    field_frame,
+                    text="Filtrar por esta fecha",
+                    variable=check_var,
+                    font=("Arial", 11)
+                )
+                check.pack(fill="x", pady=(0, 5))
+                self.filter_widgets[f"check_{col_name}"] = check_var
+
+                date_widget = DateEntry(
+                    field_frame,
+                    width=45,
+                    background='#1f538d',
+                    foreground='white',
+                    borderwidth=2,
+                    font=("Arial", 11),
+                    date_pattern='yyyy-mm-dd',
+                    locale='es_ES'
+                )
+                date_widget.pack(fill="x", pady=(0, 5))
+                
+                hint_label = ctk.CTkLabel(
+                    field_frame,
+                    text="📅 Buscará desde esta fecha en adelante",
+                    font=("Arial", 9),
+                    text_color="#999999",
+                    anchor="w"
+                )
+                hint_label.pack(fill="x")
+                
+                self.filter_widgets[col_name] = date_widget
+            else:
+                entry = ctk.CTkEntry(
+                    field_frame,
+                    height=40,
+                    font=("Arial", 12),
+                    corner_radius=8,
+                    border_width=2,
+                    border_color="#E0E0E0",
+                    placeholder_text=f"Buscar por {col_name.lower()}"
+                )
+                entry.pack(fill="x")
+                self.filter_widgets[col_name] = entry
+        
+        buttons_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        buttons_frame.pack(fill="x", pady=(10, 0))
+        
+        btn_clear = ctk.CTkButton(
+            buttons_frame,
+            text="🗑️ Limpiar Filtros",
+            width=145,
+            height=45,
+            corner_radius=10,
+            fg_color="#6B6B6B",
+            hover_color="#555555",
+            font=("Arial", 14, "bold"),
+            command=self.clear_filters
+        )
+        btn_clear.pack(side="left", padx=5)
+        
+        btn_cancel = ctk.CTkButton(
+            buttons_frame,
+            text="Cancelar",
+            width=145,
+            height=45,
+            corner_radius=10,
+            fg_color="#999999",
+            hover_color="#777777",
+            font=("Arial", 14, "bold"),
+            command=self.destroy
+        )
+        btn_cancel.pack(side="left", padx=5)
+        
+        btn_apply = ctk.CTkButton(
+            buttons_frame,
+            text="🔍 Aplicar Filtros",
+            width=145,
+            height=45,
+            corner_radius=10,
+            fg_color="#1f538d",
+            hover_color="#164270",
+            font=("Arial", 14, "bold"),
+            command=self.apply_filters
+        )
+        btn_apply.pack(side="right", padx=5)
+    
+    def get_filter_values(self):
+        """Obtener los valores de los filtros"""
+        filtros = {}
+        
+        for col_name, widget in self.filter_widgets.items():
+            if col_name.startswith("check_"):
+                continue
+                
+            if hasattr(widget, 'get_date'):
+                # Verificar si el check está activo
+                if f"check_{col_name}" in self.filter_widgets:
+                    if not self.filter_widgets[f"check_{col_name}"].get():
+                        continue
+
+                fecha = widget.get_date()
+                filtros[col_name] = fecha.strftime('%Y-%m-%d')
+            else:
+                valor = widget.get().strip()
+                if valor:
+                    filtros[col_name] = valor
+        
+        return filtros
+    
+    def clear_filters(self):
+        """Limpiar todos los campos de filtro"""
+        for widget in self.filter_widgets.values():
+            if hasattr(widget, 'set_date'):
+                widget.set_date(datetime.date.today())
+            elif isinstance(widget, ctk.BooleanVar):
+                widget.set(False)
+            else:
+                widget.delete(0, 'end')
+        
+        messagebox.showinfo(
+            "Filtros Limpiados",
+            "Los campos de filtro han sido restablecidos"
+        )
+    
+    def apply_filters(self):
+        """Aplicar los filtros y ejecutar el callback"""
+        try:
+            filtros = self.get_filter_values()
+            
+            if not filtros:
+                messagebox.showwarning(
+                    "Sin Filtros",
+                    "Por favor ingrese al menos un criterio de búsqueda"
+                )
+                return
+            
+            self.destroy()
+            
+            if self.on_filter_apply:
+                self.on_filter_apply(filtros)
+        
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Error al aplicar filtros:\n{str(e)}"
+            )
+
+
+# ============================================================================
+# VISTA DEL DASHBOARD
+# ============================================================================
+
 class DashboardView:
-    """
-    Clase para manejar la vista del Panel de Gestión con tarjetas
-    """
+    """Clase para manejar la vista del Panel de Gestión con tarjetas"""
     
     def __init__(self, parent_container, on_card_click):
-        """
-        Args:
-            parent_container: Frame contenedor donde se renderizará la vista
-            on_card_click: Callback para manejar el clic en las tarjetas
-        """
         self.container = parent_container
         self.on_card_click = on_card_click
         self.render()
     
     def render(self):
         """Renderizar la vista del dashboard con tarjetas"""
-        # Frame para centrar contenido
         content_frame = ctk.CTkFrame(
             self.container,
             fg_color="transparent"
         )
         content_frame.pack(expand=True, fill="both", padx=50, pady=30)
         
-        # Título del panel
         title = ctk.CTkLabel(
             content_frame,
             text="Panel de Gestión",
@@ -321,14 +762,12 @@ class DashboardView:
         )
         title.pack(pady=(20, 50))
         
-        # Frame para las tarjetas
         cards_frame = ctk.CTkFrame(
             content_frame,
             fg_color="transparent"
         )
         cards_frame.pack(expand=True)
         
-        # Configuración de las tarjetas
         cards_config = [
             {
                 "title": "MÁQUINAS",
@@ -377,16 +816,13 @@ class DashboardView:
             }
         ]
         
-        # Crear las tarjetas
         for i, config in enumerate(cards_config):
             self.create_card(cards_frame, config, row=0, col=i)
         
-        # Footer
         self.create_footer(content_frame)
     
     def create_card(self, parent, config, row, col):
         """Crear una tarjeta interactiva"""
-        # Frame principal de la tarjeta
         card = ctk.CTkFrame(
             parent,
             width=220,
@@ -398,16 +834,13 @@ class DashboardView:
         card.grid(row=row, column=col, padx=15, pady=20)
         card.grid_propagate(False)
         
-        # Hacer la tarjeta clickeable
         card.bind("<Enter>", lambda e: card.configure(fg_color=config["hover_color"]))
         card.bind("<Leave>", lambda e: card.configure(fg_color=config["bg_color"]))
         card.bind("<Button-1>", lambda e: self.on_card_click(config["table"]))
         
-        # Frame interno para contenido
         content = ctk.CTkFrame(card, fg_color="transparent")
         content.pack(expand=True)
         
-        # Icono
         icon_label = ctk.CTkLabel(
             content,
             text=config["icon"],
@@ -417,7 +850,6 @@ class DashboardView:
         icon_label.pack(pady=(20, 15))
         icon_label.bind("<Button-1>", lambda e: self.on_card_click(config["table"]))
         
-        # Título
         title_label = ctk.CTkLabel(
             content,
             text=config["title"],
@@ -428,7 +860,6 @@ class DashboardView:
         title_label.pack(pady=(0, 8))
         title_label.bind("<Button-1>", lambda e: self.on_card_click(config["table"]))
         
-        # Subtítulo
         subtitle_label = ctk.CTkLabel(
             content,
             text=config["subtitle"],
@@ -449,7 +880,6 @@ class DashboardView:
         )
         footer.pack(side="bottom", fill="x", pady=(30, 10))
         
-        # Links del footer
         links = ["Soporte", "Politicas de privacidad", "Terminos y condiciones"]
         links_frame = ctk.CTkFrame(footer, fg_color="transparent")
         links_frame.pack()
@@ -473,7 +903,6 @@ class DashboardView:
             )
             link_label.pack(side="left")
         
-        # Copyright
         copyright_label = ctk.CTkLabel(
             footer,
             text="© 2025 Proyecto SAMER. Todos los derechos reservados.",
@@ -488,59 +917,31 @@ class DashboardView:
             widget.destroy()
 
 
+# ============================================================================
+# VISTA DE TABLA
+# ============================================================================
+
 class TableView:
-    """
-    Clase para manejar la vista de tabla con datos
-    """
+    """Clase para manejar la vista de tabla con datos"""
     
     def __init__(self, parent_container, table_name, callbacks):
-        """
-        Args:
-            parent_container: Frame contenedor donde se renderizará la vista
-            table_name: Nombre de la tabla a mostrar
-            callbacks: Dict con callbacks para las acciones (add_item, filter, download)
-        """
-        print(f"\n=== Inicializando TableView ===")
-        print(f"Tabla: {table_name}")
-        print(f"Callbacks: {list(callbacks.keys())}")
-        
         self.container = parent_container
         self.table_name = table_name
         self.callbacks = callbacks
-        
-        # Referencias locales a widgets que se actualizarán
         self.tree = None
         self.info_label = None
         
-        try:
-            print("Llamando a render()...")
-            self.render()
-            print("render() completado")
-            
-            print("Llamando a load_data()...")
-            self.load_data()
-            print("load_data() completado")
-            
-            print("=== TableView inicializado exitosamente ===\n")
-        except Exception as e:
-            print(f"ERROR en __init__ de TableView: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
+        self.render()
+        self.load_data()
     
     def render(self):
         """Renderizar la vista de tabla"""
-        print("  -> Creando table_container...")
-        # Frame principal de la tabla
         table_container = ctk.CTkFrame(
             self.container,
             fg_color="#F5F7F9"
         )
         table_container.pack(fill="both", expand=True, padx=30, pady=20)
-        print("  -> table_container creado y packed")
         
-        print("  -> Creando table_card...")
-        # Tarjeta blanca para la tabla
         table_card = ctk.CTkFrame(
             table_container,
             corner_radius=15,
@@ -549,33 +950,18 @@ class TableView:
             border_color="#E0E0E0"
         )
         table_card.pack(fill="both", expand=True)
-        print("  -> table_card creado y packed")
         
-        print("  -> Creando header...")
-        # Header de la tarjeta
         self.create_table_header(table_card)
-        print("  -> header creado")
         
-        print("  -> Creando table_frame...")
-        # Área para la tabla
         self.table_frame = ctk.CTkFrame(
             table_card,
             fg_color="#FAFAFA",
             corner_radius=10
         )
         self.table_frame.pack(fill="both", expand=True, padx=25, pady=(10, 20))
-        print("  -> table_frame creado y packed")
         
-        print("  -> Llamando a setup_table()...")
-        # Configurar la tabla
         self.setup_table()
-        print("  -> setup_table() completado")
-        
-        print("  -> Creando footer...")
-        # Footer de la tarjeta
         self.create_table_footer(table_card)
-        print("  -> footer creado")
-        print("  -> render() completado exitosamente")
     
     def create_table_header(self, parent):
         """Crear el encabezado de la vista de tabla"""
@@ -587,7 +973,6 @@ class TableView:
         header.pack(fill="x", padx=25, pady=(20, 10))
         header.pack_propagate(False)
         
-        # Mapeo de nombres para display
         display_names = {
             "Maquinas": "Máquinas",
             "Ubicacion": "Ubicación",
@@ -598,7 +983,6 @@ class TableView:
         
         display_name = display_names.get(self.table_name, self.table_name)
         
-        # Título
         title = ctk.CTkLabel(
             header,
             text=f"Gestión de {display_name}",
@@ -607,11 +991,23 @@ class TableView:
         )
         title.pack(side="left", pady=15)
         
-        # Frame para botones
         buttons_frame = ctk.CTkFrame(header, fg_color="transparent")
         buttons_frame.pack(side="right", pady=15)
         
-        # Botón Filtrar
+        btn_clear_filters = ctk.CTkButton(
+            buttons_frame,
+            text="🗑️ Limpiar",
+            width=100,
+            height=40,
+            corner_radius=10,
+            fg_color="#999999",
+            hover_color="#777777",
+            text_color="white",
+            font=("Arial", 13, "bold"),
+            command=self.load_data
+        )
+        btn_clear_filters.pack(side="left", padx=5)
+        
         btn_filter = ctk.CTkButton(
             buttons_frame,
             text="🔍 Filtrar",
@@ -626,7 +1022,6 @@ class TableView:
         )
         btn_filter.pack(side="left", padx=5)
         
-        # Botón Editar (NUEVO)
         btn_edit = ctk.CTkButton(
             buttons_frame,
             text="✏️ Editar",
@@ -641,7 +1036,6 @@ class TableView:
         )
         btn_edit.pack(side="left", padx=5)
         
-        # Botón Agregar
         btn_add = ctk.CTkButton(
             buttons_frame,
             text=f"+ Agregar {display_name[:-1] if display_name.endswith('s') else display_name}",
@@ -658,7 +1052,6 @@ class TableView:
     
     def setup_table(self):
         """Configurar el Treeview para mostrar datos"""
-        # Crear estilo para el Treeview
         style = ttk.Style()
         style.theme_use("clam")
         style.configure("Treeview",
@@ -679,15 +1072,12 @@ class TableView:
         style.map("Treeview.Heading",
                  background=[("active", "#164270")])
         
-        # Frame para contener el Treeview y scrollbars
         tree_container = ctk.CTkFrame(self.table_frame, fg_color="white")
         tree_container.pack(fill="both", expand=True, padx=15, pady=15)
         
-        # Scrollbars
         vsb = ttk.Scrollbar(tree_container, orient="vertical")
         hsb = ttk.Scrollbar(tree_container, orient="horizontal")
         
-        # Crear Treeview (guardar referencia local)
         self.tree = ttk.Treeview(
             tree_container,
             yscrollcommand=vsb.set,
@@ -698,7 +1088,6 @@ class TableView:
         vsb.config(command=self.tree.yview)
         hsb.config(command=self.tree.xview)
         
-        # Posicionar elementos
         self.tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
         hsb.grid(row=1, column=0, sticky="ew")
@@ -716,7 +1105,6 @@ class TableView:
         footer.pack(fill="x", padx=25, pady=(0, 20))
         footer.pack_propagate(False)
         
-        # Botón Descargar Reporte
         btn_download = ctk.CTkButton(
             footer,
             text="📄 Descargar Reporte (.pdf)",
@@ -731,7 +1119,6 @@ class TableView:
         )
         btn_download.pack(side="left", pady=10)
         
-        # Label de información (guardar referencia local)
         self.info_label = ctk.CTkLabel(
             footer,
             text="",
@@ -743,134 +1130,115 @@ class TableView:
     def load_data(self):
         """Cargar datos de la base de datos en el Treeview"""
         if not self.tree:
-            print("Error: self.tree no está inicializado")
             return
         
         try:
-            # Limpiar tabla actual
             for item in self.tree.get_children():
                 self.tree.delete(item)
             
-            # Llamar a la función del módulo db_manager
-            print(f"Cargando datos de la tabla: {self.table_name}")
             filas, nombres_columnas = db_manager.cargar_datos_tabla(self.table_name)
-            print(f"Datos obtenidos: {len(filas)} filas, columnas: {nombres_columnas}")
             
-            # Configurar columnas del Treeview
             self.tree["columns"] = nombres_columnas
             self.tree["show"] = "headings"
             
-            # Configurar encabezados y anchos de columna
             for col in nombres_columnas:
                 self.tree.heading(col, text=col)
                 self.tree.column(col, width=150, anchor="center", minwidth=100)
             
-            # Insertar datos en el Treeview
             for row in filas:
                 self.tree.insert("", "end", values=row)
             
-            # Actualizar información (usando referencia local)
             if self.info_label and self.info_label.winfo_exists():
                 self.info_label.configure(text=f"Total de registros: {len(filas)}")
-            
-            print(f"Datos cargados exitosamente en el Treeview")
                 
         except Exception as e:
-            print(f"Error al cargar datos: {str(e)}")
-            import traceback
-            traceback.print_exc()
             messagebox.showerror(
                 "Error de Base de Datos", 
                 f"Error al cargar datos: {str(e)}"
             )
     
-    def get_selected_record(self):
-        """
-        Obtener el registro seleccionado en el Treeview
-        
-        Returns:
-            tuple: (record_data, column_names) o (None, None) si no hay selección
-        """
+    def update_table_data(self, filas, columnas):
+        """Actualizar los datos del Treeview con nuevos datos"""
         if not self.tree:
-            print("ERROR: self.tree no existe")
+            return
+        
+        try:
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+            
+            self.tree["columns"] = columnas
+            self.tree["show"] = "headings"
+            
+            for col in columnas:
+                self.tree.heading(col, text=col)
+                self.tree.column(col, width=150, anchor="center", minwidth=100)
+            
+            for row in filas:
+                self.tree.insert("", "end", values=row)
+            
+            if self.info_label and self.info_label.winfo_exists():
+                self.info_label.configure(text=f"Total de registros: {len(filas)}")
+                
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Error al actualizar datos: {str(e)}"
+            )
+    
+    def get_selected_record(self):
+        """Obtener el registro seleccionado en el Treeview"""
+        if not self.tree:
             return None, None
         
-        # Obtener la selección
         selection = self.tree.selection()
         
         if not selection:
-            print("No hay ninguna fila seleccionada")
             return None, None
         
-        # Obtener los datos de la fila seleccionada
         item = selection[0]
         record_data = self.tree.item(item, "values")
-        
-        # Obtener los nombres de las columnas
         column_names = list(self.tree["columns"])
-        
-        print(f"Registro seleccionado: {record_data}")
-        print(f"Columnas: {column_names}")
         
         return record_data, column_names
     
     def destroy(self):
         """Limpiar la vista y sus referencias"""
-        # Limpiar referencias a widgets antes de destruir
         self.tree = None
         self.info_label = None
         
-        # Destruir todos los widgets
         for widget in self.container.winfo_children():
             widget.destroy()
 
 
+# ============================================================================
+# GESTOR DE VISTAS
+# ============================================================================
+
 class ViewManager:
-    """
-    Gestor de vistas que coordina la creación y destrucción de vistas
-    """
+    """Gestor de vistas que coordina la creación y destrucción de vistas"""
     
     def __init__(self, container):
-        """
-        Args:
-            container: Frame contenedor principal donde se mostrarán las vistas
-        """
         self.container = container
         self.current_view = None
         self.current_view_type = None
     
     def show_dashboard(self, on_card_click):
-        """
-        Mostrar la vista del dashboard
-        
-        Args:
-            on_card_click: Callback para cuando se hace clic en una tarjeta
-        """
+        """Mostrar la vista del dashboard"""
         self.clear_current_view()
         try:
             self.current_view = DashboardView(self.container, on_card_click)
             self.current_view_type = "dashboard"
         except Exception as e:
             print(f"Error al mostrar dashboard: {e}")
-            import traceback
-            traceback.print_exc()
     
     def show_table(self, table_name, callbacks):
-        """
-        Mostrar la vista de tabla
-        
-        Args:
-            table_name: Nombre de la tabla a mostrar
-            callbacks: Dict con callbacks para las acciones
-        """
+        """Mostrar la vista de tabla"""
         self.clear_current_view()
         try:
             self.current_view = TableView(self.container, table_name, callbacks)
             self.current_view_type = "table"
         except Exception as e:
             print(f"Error al mostrar tabla: {e}")
-            import traceback
-            traceback.print_exc()
             messagebox.showerror("Error", f"No se pudo cargar la tabla: {str(e)}")
     
     def clear_current_view(self):
@@ -880,7 +1248,6 @@ class ViewManager:
                 self.current_view.destroy()
             self.current_view = None
             
-            # Limpiar cualquier widget residual
             for widget in self.container.winfo_children():
                 widget.destroy()
         except Exception as e:
@@ -889,214 +1256,3 @@ class ViewManager:
     def get_current_view_type(self):
         """Obtener el tipo de vista actual"""
         return self.current_view_type
-    
-#---------------------------------
-class AddRecordWindow(ctk.CTkToplevel):
-    """
-    Ventana emergente para agregar nuevos registros dinámicamente
-    """
-    
-    def __init__(self, parent, table_name, on_success):
-        """
-        Args:
-            parent: Ventana padre
-            table_name: Nombre de la tabla
-            on_success: Callback a ejecutar cuando se guarde exitosamente
-        """
-        super().__init__(parent)
-        
-        self.table_name = table_name
-        self.on_success = on_success
-        
-        # Diccionario para almacenar los entries
-        self.entries = {}
-        
-        # Obtener columnas dinámicamente (excluyendo IDs autoincrementales)
-        try:
-            self.columnas = db_manager.obtener_columnas_para_insert(table_name)
-            if not self.columnas:
-                messagebox.showerror("Error", "No se encontraron columnas para insertar")
-                self.destroy()
-                return
-        except Exception as e:
-            messagebox.showerror("Error", f"Error al obtener estructura de tabla: {e}")
-            self.destroy()
-            return
-        
-        # Configurar ventana
-        self.setup_window()
-        
-        # Crear interfaz
-        self.create_ui()
-    
-    def setup_window(self):
-        """Configurar propiedades de la ventana"""
-        # Mapeo de nombres para display
-        display_names = {
-            "Maquinas": "Máquinas",
-            "Ubicacion": "Ubicación",
-            "Mantenimiento": "Mantenimiento",
-            "Recaudacion": "Recaudación",
-            "Stock": "Stock"
-        }
-        display_name = display_names.get(self.table_name, self.table_name)
-        
-        self.title(f"Agregar Nuevo en {display_name}")
-        self.geometry("500x600")
-        self.resizable(False, False)
-        
-        # Centrar ventana
-        self.update_idletasks()
-        x = (self.winfo_screenwidth() // 2) - (500 // 2)
-        y = (self.winfo_screenheight() // 2) - (600 // 2)
-        self.geometry(f"500x600+{x}+{y}")
-        
-        # Hacer que la ventana sea modal
-        self.transient(self.master)
-        self.grab_set()
-        
-        # Configurar color de fondo
-        self.configure(fg_color="#F5F7F9")
-    
-    def create_ui(self):
-        """Crear la interfaz de usuario"""
-        # Frame principal con scroll
-        main_frame = ctk.CTkFrame(self, fg_color="#F5F7F9")
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Título
-        display_names = {
-            "Maquinas": "Máquinas",
-            "Ubicacion": "Ubicación",
-            "Mantenimiento": "Mantenimiento",
-            "Recaudacion": "Recaudación",
-            "Stock": "Stock"
-        }
-        display_name = display_names.get(self.table_name, self.table_name)
-        
-        title_label = ctk.CTkLabel(
-            main_frame,
-            text=f"Agregar Nuevo Registro",
-            font=("Arial", 24, "bold"),
-            text_color="#1A1A1A"
-        )
-        title_label.pack(pady=(10, 20))
-        
-        # Frame para el formulario con scroll
-        form_container = ctk.CTkScrollableFrame(
-            main_frame,
-            fg_color="white",
-            corner_radius=15,
-            border_width=1,
-            border_color="#E0E0E0"
-        )
-        form_container.pack(fill="both", expand=True, pady=(0, 15))
-        
-        # Crear campos dinámicamente basándose en las columnas
-        for col_name in self.columnas:
-            # Frame para cada campo
-            field_frame = ctk.CTkFrame(form_container, fg_color="transparent")
-            field_frame.pack(fill="x", padx=20, pady=10)
-            
-            # Label del campo
-            label = ctk.CTkLabel(
-                field_frame,
-                text=col_name,
-                font=("Arial", 12, "bold"),
-                text_color="#333333",
-                anchor="w"
-            )
-            label.pack(fill="x", pady=(0, 5))
-            
-            # Entry del campo
-            entry = ctk.CTkEntry(
-                field_frame,
-                height=40,
-                font=("Arial", 12),
-                corner_radius=8,
-                border_width=2,
-                border_color="#E0E0E0",
-                placeholder_text=f"Ingrese {col_name.lower()}"
-            )
-            entry.pack(fill="x")
-            
-            # Guardar referencia al entry
-            self.entries[col_name] = entry
-        
-        # Frame para botones de acción
-        buttons_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        buttons_frame.pack(fill="x", pady=(10, 0))
-        
-        # Botón Cancelar
-        btn_cancel = ctk.CTkButton(
-            buttons_frame,
-            text="Cancelar",
-            width=220,
-            height=45,
-            corner_radius=10,
-            fg_color="#6B6B6B",
-            hover_color="#555555",
-            font=("Arial", 14, "bold"),
-            command=self.destroy
-        )
-        btn_cancel.pack(side="left", padx=5)
-        
-        # Botón Guardar
-        btn_save = ctk.CTkButton(
-            buttons_frame,
-            text="💾 Guardar",
-            width=220,
-            height=45,
-            corner_radius=10,
-            fg_color="#1f538d",
-            hover_color="#164270",
-            font=("Arial", 14, "bold"),
-            command=self.save_record
-        )
-        btn_save.pack(side="right", padx=5)
-    
-    def save_record(self):
-        """Guardar el nuevo registro en la base de datos"""
-        try:
-            # Recopilar los datos del formulario
-            datos = {}
-            campos_vacios = []
-            
-            for col_name, entry in self.entries.items():
-                valor = entry.get().strip()
-                
-                # Validar que no esté vacío
-                if valor == "":
-                    campos_vacios.append(col_name)
-                else:
-                    datos[col_name] = valor
-            
-            # Validar que todos los campos tengan datos
-            if campos_vacios:
-                messagebox.showwarning(
-                    "Campos Vacíos",
-                    f"Por favor complete los siguientes campos:\n\n" + 
-                    "\n".join(f"• {campo}" for campo in campos_vacios)
-                )
-                return
-            
-            # Insertar en la base de datos
-            nuevo_id = db_manager.insertar_registro(self.table_name, datos)
-            
-            messagebox.showinfo(
-                "Éxito",
-                f"Registro agregado correctamente\nID: {nuevo_id}"
-            )
-            
-            # Cerrar ventana
-            self.destroy()
-            
-            # Ejecutar callback de éxito para recargar la tabla
-            if self.on_success:
-                self.on_success()
-        
-        except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"Error al guardar el registro:\n{str(e)}"
-            )

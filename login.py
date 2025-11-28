@@ -2,11 +2,11 @@ import customtkinter as ctk
 from tkinter import messagebox
 from PIL import Image, ImageDraw
 import os
-import db_manager  # Importar el módulo de lógica de base de datos
+import db_manager
 from index import DashboardSAMER
 
 # Configuración del tema y color
-ctk.set_appearance_mode("dark")
+ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
 class LoginWindow:
@@ -19,8 +19,8 @@ class LoginWindow:
         window_width = 500
         window_height = 700
         self.window.geometry(f"{window_width}x{window_height}")
-        self.window.resizable(False, False)  # Evitar redimensionamiento
-        self.window.configure(fg_color="#2b2b2b")  # Fondo gris oscuro
+        self.window.resizable(False, False)
+        self.window.configure(fg_color="#2b2b2b")
         
         # Centrar ventana en la pantalla
         self.center_window(window_width, window_height)
@@ -36,7 +36,7 @@ class LoginWindow:
         self.login_frame.place(relx=0.5, rely=0.5, anchor="center")
         self.login_frame.pack_propagate(False)
         
-        # Logo (placeholder)
+        # Logo
         self.create_logo()
         
         # Título
@@ -75,7 +75,7 @@ class LoginWindow:
             border_color="#e0e0e0",
             fg_color="white",
             text_color="#1f1f1f",
-            show="●"  # Ocultar contraseña
+            show="●"
         )
         self.password_entry.pack(pady=15)
         
@@ -87,7 +87,7 @@ class LoginWindow:
             text="Iniciar Sesión",
             font=("Arial", 16, "bold"),
             corner_radius=10,
-            fg_color="#14b8a6",  # Color teal
+            fg_color="#14b8a6",
             hover_color="#0d9488",
             text_color="white",
             command=self.login
@@ -133,19 +133,17 @@ class LoginWindow:
         """Crear un logo placeholder circular"""
         try:
             # Intentar cargar logo.png si existe
-            if os.path.exists("logo.png"):
+            if os.path.exists("asset\img\logo.jpg"):
                 logo_image = ctk.CTkImage(
-                    light_image=Image.open("logo.png"),
-                    dark_image=Image.open("logo.png"),
-                    size=(100, 100)
+                    light_image=Image.open("assets\img\logo.jpg"),
+                    dark_image=Image.open("assets\img\logo.jpg"),
+                    size=(250, 200)
                 )
             else:
                 # Crear logo placeholder
                 img = Image.new('RGB', (100, 100), color='#14b8a6')
                 draw = ImageDraw.Draw(img)
-                # Dibujar círculo
                 draw.ellipse([10, 10, 90, 90], fill='#0d9488', outline='#14b8a6', width=3)
-                # Dibujar iniciales
                 draw.text((35, 35), "LS", fill='white')
                 
                 logo_image = ctk.CTkImage(
@@ -171,15 +169,10 @@ class LoginWindow:
             self.logo_label.pack(pady=(30, 10))
     
     def login(self):
-        """
-        Función para manejar el inicio de sesión.
-        Ahora utiliza el módulo db_manager para toda la lógica de base de datos.
-        """
-        # 1. Obtener las credenciales de los campos de entrada
+        """Función para manejar el inicio de sesión"""
         username = self.username_entry.get()
         password = self.password_entry.get()
         
-        # 2. Validar que los campos no estén vacíos
         if not username or not password:
             messagebox.showwarning(
                 "Advertencia", 
@@ -188,26 +181,19 @@ class LoginWindow:
             return
         
         try:
-            # 3. Llamar a la función de autenticación del módulo db_manager
             user = db_manager.autenticar_usuario(username, password)
             
-            # 4. Verificar el resultado de la autenticación
             if user:
-                # Login exitoso - Cerrar la ventana de login
                 self.window.destroy()
-                
-                # Crear y ejecutar la ventana principal del dashboard
                 dashboard = DashboardSAMER()
                 dashboard.run()
             else:
-                # Login fallido
                 messagebox.showerror(
                     "Error de Autenticación", 
                     "Usuario o contraseña incorrectos"
                 )
         
         except Exception as e:
-            # Manejar cualquier error de base de datos
             messagebox.showerror(
                 "Error de Base de Datos", 
                 f"Error al conectar con la base de datos: {str(e)}"
