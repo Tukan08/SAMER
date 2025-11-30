@@ -9,6 +9,79 @@ import conexion_db
 
 
 # ============================================================================
+# CONFIGURACIÓN DE CAMPOS COMBOBOX
+# ============================================================================
+
+# Definición de campos que deben usar ComboBox y sus opciones
+CAMPOS_COMBOBOX = {
+    "Maquinas": {
+        "estatus": ["Activo", "Inactivo", "En Mantenimiento", "Fuera de Servicio"]
+    },
+    "Ubicacion": {
+        "tipoLugar": ["Mercado", "Plaza Comercial", "Tienda", "Otro"]
+    }
+}
+
+# Mapeo de valores de UI a valores de base de datos
+MAPEO_UI_A_BD = {
+    "Activo": "activa",
+    "Inactivo": "inactiva",
+    "En Mantenimiento": "en_mantenimiento",
+    "Fuera de Servicio": "fuera_de_servicio",
+    "Mercado": "mercado",
+    "Plaza Comercial": "plaza",
+    "Tienda": "tienda",
+    "Otro": "otro"
+}
+
+# Mapeo inverso: de valores de BD a valores de UI
+MAPEO_BD_A_UI = {v: k for k, v in MAPEO_UI_A_BD.items()}
+
+
+def obtener_opciones_combobox(tabla, campo):
+    """
+    Obtiene las opciones disponibles para un campo de tipo ComboBox
+    
+    Args:
+        tabla (str): Nombre de la tabla
+        campo (str): Nombre del campo
+    
+    Returns:
+        list: Lista de opciones o None si el campo no usa ComboBox
+    """
+    if tabla in CAMPOS_COMBOBOX and campo in CAMPOS_COMBOBOX[tabla]:
+        return CAMPOS_COMBOBOX[tabla][campo]
+    return None
+
+
+def convertir_valor_ui_a_bd(valor):
+    """
+    Convierte un valor de la interfaz de usuario al formato de base de datos
+    
+    Args:
+        valor (str): Valor de la UI
+    
+    Returns:
+        str: Valor en formato de BD
+    """
+    return MAPEO_UI_A_BD.get(valor, valor)
+
+
+def convertir_valor_bd_a_ui(valor):
+    """
+    Convierte un valor de la base de datos al formato de interfaz de usuario
+    
+    Args:
+        valor (str): Valor de la BD
+    
+    Returns:
+        str: Valor en formato de UI
+    """
+    return MAPEO_BD_A_UI.get(valor, valor)
+
+
+
+# ============================================================================
 # FUNCIONES DE AUTENTICACIÓN
 # ============================================================================
 
@@ -847,4 +920,89 @@ def obtener_maquinas_con_ubicacion():
     
     finally:
         if conn:
+            conn.close()
+
+
+# ============================================================================
+# FUNCIONES PARA REPORTES ESTADÍSTICOS DE RECAUDACIÓN
+# ============================================================================
+
+def obtener_datos_recaudacion_graficos(meses_atras):
+    """
+    Obtiene datos de recaudación agrupados por mes y ubicación para generar gráficos
+    
+    Args:
+        meses_atras (int): Número de meses hacia atrás desde el mes actual
+    
+    Returns:
+        list: Lista de tuplas (Mes, NombreUbicacion, TotalRecaudado)
+    """
+    conn = None
+    try:
+        from datetime import datetime, timedelta
+        from dateutil.relativedelta import relativedelta
+        
+        conn = conexion_db.crear_conexion()
+        if conn is None:
+            raise Error("No se pudo establecer conexión con la base de datos")
+        
+        cursor = conn.cursor()
+        
+        # Calcular fecha de inicio (meses_atras desde hoy)
+        fecha_actual = datetime.now()
+        fecha_inicio = fecha_actual - relativedelta(months=meses_atras)
+        fecha_inicio_str = fecha_inicio.strftime('%Y-%m-%d')
+        
+        # Query SQL con JOIN y agrupación
+        query = """
+            SELECT 
+                strftime('%Y-%m', R.fecha) as Mes,
+                U.nombreLugar as Ubicacion,
+                SUM(R.monto) as TotalRecaudado
+            FROM Recaudacion R
+            INNER JOIN Ubicacion U ON R.Ubicacion_idUbicacion = U.idUbicacion
+            WHERE R.fecha >= ?
+            GROUP BY strftime('%Y-%m', R.fecha), U.nombreLugar
+            ORDER BY Mes, Ubicacion
+        """
+        
+        cursor.execute(query, (fecha_inicio_str,))
+        resultados = cursor.fetchall()
+        
+        return resultados
+        
+    except Error as e:
+        raise Error(f"Error al obtener datos de recaudación para gráficos: {e}")
+    
+    finally:
+        if conn:
+            conn.close()
+
+
+def obtener_ubicaciones_unicas():
+    """
+    Obtiene la lista de ubicaciones únicas en la base de datos
+    
+    Returns:
+        list: Lista de nombres de ubicaciones
+    """
+    conn = None
+    try:
+        conn = conexion_db.crear_conexion()
+        if conn is None:
+            raise Error("No se pudo establecer conexión con la base de datos")
+        
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT nombreLugar FROM Ubicacion ORDER BY nombreLugar")
+        ubicaciones = [row[0] for row in cursor.fetchall()]
+        
+        return ubicaciones
+        
+    except Error as e:
+        raise Error(f"Error al obtener ubicaciones únicas: {e}")
+    
+    finally:
+        if conn:
+            conn.close()
+
             conn.close()

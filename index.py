@@ -337,27 +337,67 @@ class DashboardSAMER:
             if not filepath:
                 return
             
-            # Obtener datos actuales de la tabla
-            filas, columnas = db_manager.cargar_datos_tabla(table_name)
+            # === VALIDACIÓN ESPECIAL PARA TABLA RECAUDACIÓN ===
+            if table_name == "Recaudacion":
+                # Solicitar número de meses al usuario
+                dialog = ctk.CTkInputDialog(
+                    text="Considerando este mes, ¿cuántos meses atrás desea visualizar?\n(Ingrese un número entre 1 y 12)",
+                    title="Reporte Estadístico de Recaudación"
+                )
+                meses_input = dialog.get_input()
+                
+                # Validar entrada
+                if not meses_input:
+                    return  # Usuario canceló
+                
+                try:
+                    meses_solicitados = int(meses_input)
+                    if meses_solicitados < 1 or meses_solicitados > 12:
+                        raise ValueError("Número fuera de rango")
+                except ValueError:
+                    messagebox.showerror(
+                        "Error de Validación",
+                        "Por favor ingrese un número válido entre 1 y 12"
+                    )
+                    return
+                
+                # Obtener datos para gráficos
+                datos_graficos = db_manager.obtener_datos_recaudacion_graficos(meses_solicitados)
+                
+                # Obtener datos de la tabla
+                filas, columnas = db_manager.cargar_datos_tabla(table_name)
+                
+                # Generar reporte estadístico con gráficos
+                exito = report_manager.generar_reporte_recaudacion(
+                    filepath,
+                    (columnas, filas),
+                    datos_graficos,
+                    meses_solicitados
+                )
+            else:
+                # === FLUJO NORMAL PARA OTRAS TABLAS ===
+                # Obtener datos actuales de la tabla
+                filas, columnas = db_manager.cargar_datos_tabla(table_name)
+                
+                # Generar el PDF
+                titulo_reporte = f"Reporte de {display_name}"
+                
+                # Llamar al generador de PDF
+                exito = report_manager.generar_reporte_tabla(
+                    filepath,
+                    titulo_reporte,
+                    columnas,
+                    filas
+                )
             
-            # Generar el PDF
-            titulo_reporte = f"Reporte de {display_name}"
-            
-            # Llamar al generador de PDF
-            exito = report_manager.generar_reporte_tabla(
-                filepath,
-                titulo_reporte,
-                columnas,
-                filas
-            )
-            
+            # === MENSAJE DE ÉXITO (COMÚN PARA AMBOS FLUJOS) ===
             if exito:
                 # Mensaje de éxito con opción de abrir el archivo
                 result = messagebox.askyesno(
                     "Reporte Generado",
-                    f"✅ Reporte generado exitosamente\n\n"
-                    f"📁 Ubicación: {filepath}\n"
-                    f"📊 Registros: {len(filas)}\n\n"
+                    f"✅ Reporte generado exitosamente\\n\\n"
+                    f"📁 Ubicación: {filepath}\\n"
+                    f"📊 Registros: {len(filas)}\\n\\n"
                     f"¿Desea abrir el archivo ahora?",
                     icon="info"
                 )
@@ -369,14 +409,14 @@ class DashboardSAMER:
             else:
                 messagebox.showerror(
                     "Error",
-                    "No se pudo generar el reporte PDF.\n"
+                    "No se pudo generar el reporte PDF.\\n"
                     "Verifique que tiene permisos de escritura."
                 )
         
         except Exception as e:
             messagebox.showerror(
                 "Error",
-                f"Error al generar el reporte:\n{str(e)}"
+                f"Error al generar el reporte:\\n{str(e)}"
             )
     
     def show_notifications(self):
