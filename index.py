@@ -102,10 +102,10 @@ class DashboardSAMER:
         )
         # No lo empaquetamos aún
         
-        # Botón de notificaciones
-        btn_notifications = ctk.CTkButton(
+        # Botón de Reporte General
+        btn_general_report = ctk.CTkButton(
             right_frame,
-            text="🔔",
+            text="📊",
             width=45,
             height=45,
             corner_radius=22,
@@ -113,27 +113,12 @@ class DashboardSAMER:
             hover_color="#E0E0E0",
             text_color="#1A1A1A",
             font=("Arial", 18),
-            command=self.show_notifications
+            command=self.generate_general_report
         )
-        btn_notifications.pack(side="left", padx=5)
+        btn_general_report.pack(side="left", padx=5)
         
-        # Botón de configuración
-        btn_settings = ctk.CTkButton(
-            right_frame,
-            text="⚙️",
-            width=45,
-            height=45,
-            corner_radius=22,
-            fg_color="#F0F0F0",
-            hover_color="#E0E0E0",
-            text_color="#1A1A1A",
-            font=("Arial", 18),
-            command=self.show_settings
-        )
-        btn_settings.pack(side="left", padx=5)
-        
-        # Botón de perfil/logout
-        btn_profile = ctk.CTkButton(
+# Botón de Gestión de Usuarios (MODIFICADO - antes era Configuración)
+        btn_user_management = ctk.CTkButton(
             right_frame,
             text="👤",
             width=45,
@@ -143,9 +128,24 @@ class DashboardSAMER:
             hover_color="#E0E0E0",
             text_color="#1A1A1A",
             font=("Arial", 18),
+            command=self.open_user_management
+        )
+        btn_user_management.pack(side="left", padx=5)
+        
+        # Botón de Cerrar Sesión (MODIFICADO - antes era Perfil)
+        btn_logout = ctk.CTkButton(
+            right_frame,
+            text="⬅",
+            width=45,
+            height=45,
+            corner_radius=22,
+            fg_color="#F0F0F0",
+            hover_color="#D9534F",
+            text_color="#1A1A1A",
+            font=("Arial", 18),
             command=self.logout
         )
-        btn_profile.pack(side="left", padx=5)
+        btn_logout.pack(side="left", padx=5)
     
     def create_main_container(self):
         """Crear el contenedor principal donde se mostrarán las vistas"""
@@ -432,6 +432,194 @@ class DashboardSAMER:
             "Configuración", 
             "Panel de configuración\n\n(En desarrollo)"
         )
+    
+
+    def generate_general_report(self):
+        """Generar reporte general del sistema"""
+        try:
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            filepath = filedialog.asksaveasfilename(
+                title="Guardar Reporte General",
+                defaultextension=".pdf",
+                filetypes=[("Archivos PDF", "*.pdf")],
+                initialfile=f"Reporte_General_{timestamp}.pdf"
+            )
+            
+            if not filepath:
+                return
+            
+            # Obtener datos de todas las tablas
+            tablas = ["Maquinas", "Ubicacion", "Mantenimiento", "Recaudacion", "Stock"]
+            datos_completos = {}
+            
+            for tabla in tablas:
+                try:
+                    filas, columnas = db_manager.cargar_datos_tabla(tabla)
+                    datos_completos[tabla] = (columnas, filas)
+                except Exception as e:
+                    print(f"Error al cargar {tabla}: {e}")
+            
+            # Generar el PDF
+            exito = report_manager.generar_reporte_general(filepath, datos_completos)
+            
+            if exito:
+                result = messagebox.askyesno(
+                    "Reporte Generado",
+                    f"✅ Reporte general generado exitosamente\\n\\n"
+                    f"📁 Ubicación: {filepath}\\n\\n"
+                    f"¿Desea abrir el archivo ahora?",
+                    icon="info"
+                )
+                
+                if result:
+                    if os.name == 'nt':
+                        os.startfile(filepath)
+            else:
+                messagebox.showerror(
+                    "Error",
+                    "No se pudo generar el reporte general."
+                )
+        
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Error al generar el reporte:\\n{str(e)}"
+            )
+    
+    def open_user_management(self):
+        """Abrir ventana de gestión de usuarios"""
+        try:
+            from views import TableView
+            
+            # Crear ventana emergente
+            user_window = ctk.CTkToplevel(self.window)
+            user_window.title("Gestión de Usuarios")
+            user_window.geometry("1000x700")
+            
+            # Centrar ventana
+            user_window.update_idletasks()
+            width = 1000
+            height = 700
+            x = (user_window.winfo_screenwidth() // 2) - (width // 2)
+            y = (user_window.winfo_screenheight() // 2) - (height // 2)
+            user_window.geometry(f'{width}x{height}+{x}+{y}')
+            
+            # Hacer la ventana modal
+            user_window.grab_set()
+            
+            # Crear frame contenedor
+            container = ctk.CTkFrame(user_window, fg_color="#F5F7F9")
+            container.pack(fill="both", expand=True, padx=10, pady=10)
+            
+            # Callbacks para la tabla de usuarios
+            def add_user_callback(table_name):
+                from views import AddRecordWindow
+                add_window = AddRecordWindow(
+                    parent=user_window,
+                    table_name="Usuarios",
+                    on_success=lambda: table_view.load_data()
+                )
+            
+            def edit_user_callback():
+                record_data, column_names = table_view.get_selected_record()
+                if record_data is None or column_names is None:
+                    messagebox.showwarning(
+                        "Advertencia",
+                        "Por favor, seleccione un usuario para editar"
+                    )
+                    return
+                
+                from views import EditRecordWindow
+                edit_window = EditRecordWindow(
+                    parent=user_window,
+                    table_name="Usuarios",
+                    record_data=record_data,
+                    column_names=column_names,
+                    on_success=lambda: table_view.load_data()
+                )
+            
+            def filter_user_callback():
+                from views import FilterWindow
+                
+                try:
+                    _, column_names = db_manager.cargar_datos_tabla("Usuarios")
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudieron obtener las columnas: {str(e)}")
+                    return
+                
+                def on_filter_apply(filtros_dict):
+                    try:
+                        filas_filtradas, columnas = db_manager.filtrar_registros("Usuarios", filtros_dict)
+                        table_view.update_table_data(filas_filtradas, columnas)
+                        messagebox.showinfo(
+                            "Filtros Aplicados",
+                            f"Se encontraron {len(filas_filtradas)} usuario(s)"
+                        )
+                    except Exception as e:
+                        messagebox.showerror("Error al Filtrar", f"Error: {str(e)}")
+                
+                filter_window = FilterWindow(
+                    parent=user_window,
+                    table_name="Usuarios",
+                    column_names=column_names,
+                    on_filter_apply=on_filter_apply
+                )
+            
+            def download_user_pdf(table_name):
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                
+                filepath = filedialog.asksaveasfilename(
+                    title="Guardar Reporte de Usuarios",
+                    defaultextension=".pdf",
+                    filetypes=[("Archivos PDF", "*.pdf")],
+                    initialfile=f"Reporte_Usuarios_{timestamp}.pdf"
+                )
+                
+                if not filepath:
+                    return
+                
+                try:
+                    filas, columnas = db_manager.cargar_datos_tabla("Usuarios")
+                    exito = report_manager.generar_reporte_tabla(
+                        filepath,
+                        "Reporte de Usuarios",
+                        columnas,
+                        filas
+                    )
+                    
+                    if exito:
+                        result = messagebox.askyesno(
+                            "Reporte Generado",
+                            f"✅ Reporte generado exitosamente\\n\\n"
+                            f"📁 Ubicación: {filepath}\\n\\n"
+                            f"¿Desea abrir el archivo ahora?",
+                            icon="info"
+                        )
+                        
+                        if result and os.name == 'nt':
+                            os.startfile(filepath)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Error al generar reporte: {str(e)}")
+            
+            # Crear TableView para usuarios
+            callbacks = {
+                'add_item': add_user_callback,
+                'edit_item': edit_user_callback,
+                'filter': filter_user_callback,
+                'download': download_user_pdf
+            }
+            
+            table_view = TableView(container, "Usuarios", callbacks)
+            # TableView se empaqueta automáticamente en su método render()
+            
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Error al abrir gestión de usuarios:\\n{str(e)}"
+            )
     
     def logout(self):
         """Cerrar sesión y volver a la ventana de login"""
