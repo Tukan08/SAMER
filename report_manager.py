@@ -199,7 +199,6 @@ class PDFGenerator:
             return True
             
         except Exception as e:
-            print(f"Error al generar PDF: {str(e)}")
             return False
     
     def generar_reporte_general(self, filepath, datos_completos):
@@ -373,7 +372,6 @@ class PDFGenerator:
             return True
             
         except Exception as e:
-            print(f"Error al generar reporte general: {str(e)}")
             return False
 
     
@@ -674,7 +672,6 @@ class PDFGenerator:
             return True
             
         except Exception as e:
-            print(f"Error al generar reporte de recaudación: {str(e)}")
             import traceback
             traceback.print_exc()
             # Asegurar limpieza en caso de error

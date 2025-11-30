@@ -133,10 +133,10 @@ class LoginWindow:
         """Crear un logo placeholder circular"""
         try:
             # Intentar cargar logo.png si existe
-            if os.path.exists("asset\img\logo.jpg"):
+            if os.path.exists("assets\img\logo.png"):
                 logo_image = ctk.CTkImage(
-                    light_image=Image.open("assets\img\logo.jpg"),
-                    dark_image=Image.open("assets\img\logo.jpg"),
+                    light_image=Image.open("assets\img\logo.png"),
+                    dark_image=Image.open("assets\img\logo.png"),
                     size=(250, 200)
                 )
             else:

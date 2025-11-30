@@ -172,12 +172,9 @@ class DashboardSAMER:
         Args:
             table_name: Nombre de la tabla a mostrar
         """
-        print(f"\n=== show_table_view llamado ===")
-        print(f"Tabla solicitada: {table_name}")
         
         # Mostrar botón home
         self.btn_home.pack(side="left", padx=5)
-        print("Botón home mostrado")
         
         # Preparar callbacks para la vista de tabla
         callbacks = {
@@ -186,19 +183,14 @@ class DashboardSAMER:
             'filter': self.filter_data,
             'download': self.download_pdf
         }
-        print(f"Callbacks preparados: {list(callbacks.keys())}")
         
         # Mostrar vista de tabla usando el ViewManager
-        print("Llamando a view_manager.show_table()...")
         try:
             self.view_manager.show_table(table_name, callbacks)
-            print("view_manager.show_table() completado")
         except Exception as e:
-            print(f"ERROR en show_table(): {e}")
             import traceback
             traceback.print_exc()
         
-        print("=== show_table_view completado ===\n")
     
     # ==================== ACCIONES ====================
     
@@ -459,7 +451,7 @@ class DashboardSAMER:
                     filas, columnas = db_manager.cargar_datos_tabla(tabla)
                     datos_completos[tabla] = (columnas, filas)
                 except Exception as e:
-                    print(f"Error al cargar {tabla}: {e}")
+                    pass
             
             # Generar el PDF
             exito = report_manager.generar_reporte_general(filepath, datos_completos)

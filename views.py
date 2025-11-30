@@ -1229,7 +1229,7 @@ class ViewManager:
             self.current_view = DashboardView(self.container, on_card_click)
             self.current_view_type = "dashboard"
         except Exception as e:
-            print(f"Error al mostrar dashboard: {e}")
+            pass
     
     def show_table(self, table_name, callbacks):
         """Mostrar la vista de tabla"""
@@ -1238,7 +1238,6 @@ class ViewManager:
             self.current_view = TableView(self.container, table_name, callbacks)
             self.current_view_type = "table"
         except Exception as e:
-            print(f"Error al mostrar tabla: {e}")
             messagebox.showerror("Error", f"No se pudo cargar la tabla: {str(e)}")
     
     def clear_current_view(self):
@@ -1251,7 +1250,7 @@ class ViewManager:
             for widget in self.container.winfo_children():
                 widget.destroy()
         except Exception as e:
-            print(f"Error al limpiar vista: {e}")
+            pass
     
     def get_current_view_type(self):
         """Obtener el tipo de vista actual"""
