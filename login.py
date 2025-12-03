@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw
 import os
 import db_manager
 from index import DashboardSAMER
+from recuperacion import ForgotPasswordWindow
 
 # Configuración del tema y color
 ctk.set_appearance_mode("light")
@@ -137,7 +138,7 @@ class LoginWindow:
                 logo_image = ctk.CTkImage(
                     light_image=Image.open("assets\img\logo.png"),
                     dark_image=Image.open("assets\img\logo.png"),
-                    size=(250, 200)
+                    size=(100, 100)
                 )
             else:
                 # Crear logo placeholder
@@ -201,10 +202,8 @@ class LoginWindow:
     
     def forgot_password_click(self):
         """Función para manejar clic en olvidó contraseña"""
-        messagebox.showinfo(
-            "Recuperar Contraseña", 
-            "Función de recuperación de contraseña"
-        )
+        # Abrir ventana de recuperación de contraseña
+        ForgotPasswordWindow(self.window)
     
     def run(self):
         """Iniciar la aplicación"""

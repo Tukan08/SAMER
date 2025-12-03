@@ -122,6 +122,85 @@ def autenticar_usuario(username, password):
             conn.close()
 
 
+def verificar_usuario_email(username, email):
+    """
+    Verifica que el usuario exista en la base de datos.
+    El email no se valida contra la BD, solo se usa para enviar el código.
+    Utilizado para el proceso de recuperación de contraseña.
+    
+    Args:
+        username (str): Nombre de usuario
+        email (str): Correo electrónico (no se valida, solo se usa para envío)
+    
+    Returns:
+        bool: True si el usuario existe, False en caso contrario
+        
+    Raises:
+        sqlite3.Error: Si hay un error de conexión o consulta a la base de datos
+    """
+    conn = None
+    try:
+        conn = conexion_db.crear_conexion()
+        if conn is None:
+            raise Error("No se pudo establecer conexión con la base de datos")
+        
+        cursor = conn.cursor()
+        # Solo verificamos que el usuario exista, no validamos el email
+        cursor.execute(
+            "SELECT * FROM Usuarios WHERE userName = ?",
+            (username,)
+        )
+        
+        user = cursor.fetchone()
+        return user is not None
+        
+    except Error as e:
+        raise Error(f"Error al verificar usuario: {e}")
+    
+    finally:
+        if conn:
+            conn.close()
+
+
+def actualizar_contrasena(username, nueva_password):
+    """
+    Actualiza la contraseña de un usuario en la base de datos.
+    Utilizado para el proceso de recuperación de contraseña.
+    
+    Args:
+        username (str): Nombre de usuario
+        nueva_password (str): Nueva contraseña a establecer
+    
+    Returns:
+        int: Número de filas afectadas (1 si se actualizó correctamente, 0 si no)
+        
+    Raises:
+        sqlite3.Error: Si hay un error en la actualización
+    """
+    conn = None
+    try:
+        conn = conexion_db.crear_conexion()
+        if conn is None:
+            raise Error("No se pudo establecer conexión con la base de datos")
+        
+        cursor = conn.cursor()
+        
+        sql = "UPDATE Usuarios SET password = ? WHERE userName = ?"
+        cursor.execute(sql, (nueva_password, username))
+        conn.commit()
+        
+        return cursor.rowcount
+        
+    except Error as e:
+        if conn:
+            conn.rollback()
+        raise Error(f"Error al actualizar contraseña: {e}")
+    
+    finally:
+        if conn:
+            conn.close()
+
+
 # ============================================================================
 # FUNCIONES DE CONSULTA DE DATOS
 # ============================================================================
@@ -920,7 +999,8 @@ def obtener_maquinas_con_ubicacion():
     
     finally:
         if conn:
-            conn.close()
+            conn.close()
+
 
 
 # ============================================================================
