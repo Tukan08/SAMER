@@ -44,8 +44,8 @@ class DashboardSAMER:
     def center_window(self):
         """Centrar la ventana en la pantalla"""
         self.window.update_idletasks()
-        width = 1000
-        height = 800
+        width = 900
+        height = 700
         x = (self.window.winfo_screenwidth() // 2) - (width // 2)
         y = (self.window.winfo_screenheight() // 2) - (height // 2)
         self.window.geometry(f'{width}x{height}+{x}+{y}')
